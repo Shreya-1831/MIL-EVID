@@ -1,233 +1,199 @@
 # MIL-EVID
 
-### Hybrid RAG Backend for Multi-Perspective Military Situation Analysis
+**Static–Dynamic Evidence-Grounded Hybrid Retrieval-Augmented Generation Framework for Multi-Perspective Military Situation Analysis**
 
-MIL-EVID is a full-stack AI-powered Retrieval-Augmented Generation (RAG) system designed for analyzing military situations from multiple perspectives, including **military, legal, and historical viewpoints**.
+MIL-EVID is a research prototype that takes a natural-language military situation query, retrieves relevant evidence from static and dynamic sources, and produces a structured, citation-supported, multi-perspective analysis.
 
-The system retrieves relevant evidence from a document collection using a **hybrid search architecture** that combines lexical and semantic retrieval before passing the retrieved context to a Large Language Model (LLM) for analysis.
+The system combines **BM25 lexical retrieval, dense vector retrieval, Reciprocal Rank Fusion (RRF), and cross-encoder reranking**. Future stages add dynamic evidence, perspective analysis, contradiction detection, claim verification, and explainable confidence scoring.
 
----
+### Scope
 
-## 🎯 Project Objective
-
-The objective of MIL-EVID is to build an evidence-grounded military situation analysis system that can:
-
-* Retrieve relevant information from a large document collection
-* Perform both keyword-based and semantic search
-* Combine multiple retrieval strategies
-* Provide context-grounded responses
-* Support military, legal, and historical perspectives
-* Reduce unsupported or hallucinated responses
-* Preserve evidence and source information for retrieved content
+MIL-EVID is an **evidence-analysis system only**. It does not perform or support military targeting, weapon selection, attack optimization, operational planning, or autonomous military decision-making.
 
 ---
 
-## 🏗️ System Overview
+## Project Status
 
-MIL-EVID follows a phased Hybrid RAG architecture:
+The project is being developed incrementally in phases.
+
+* [x] **Phase 1** — Project scaffolding, configuration, domain models, exception hierarchy, FastAPI application
+* [x] **Phase 2** — Preprocessing: cleaning, normalization, deduplication, chunking
+* [x] **Phase 2.5** — PDF ingestion, country-scope filtering, local chunk storage, metadata-only PostgreSQL layer
+* [ ] **Phase 3** — BM25 + Dense Retrieval
+* [ ] **Phase 4** — RRF + Cross-Encoder + Hybrid Retrieval
+* [ ] **Phase 5** — Dynamic Evidence Layer
+* [ ] **Phase 6** — Perspective Analysis
+* [ ] **Phase 7** — Contradiction Detection + Claim Verification
+* [ ] **Phase 8** — Confidence Scoring
+* [ ] **Phase 9** — Pipeline Orchestration
+* [ ] **Phase 10** — API Routes
+* [ ] **Phase 11** — Database: request history and remaining schema
+* [ ] **Phase 12** — Tests
+
+---
+
+## Data Sources
+
+MIL-EVID is designed around multiple evidence sources:
+
+| Source            | Role                                               |
+| ----------------- | -------------------------------------------------- |
+| **UCDP**          | Conflict and event data                            |
+| **ICRC IHL**      | International humanitarian law and legal evidence  |
+| **UN Peacemaker** | Peace agreements and conflict-resolution documents |
+| **SIPRI**         | Arms transfer data                                 |
+| **ACLED**         | Dynamic conflict/event evidence                    |
+
+Static sources are processed offline, while dynamic evidence is designed to be incorporated separately during retrieval.
+
+---
+
+## Architecture
+
+The overall retrieval architecture is:
 
 ```text
-Documents
-    ↓
-Document Processing
-    ↓
-Text Extraction & Cleaning
-    ↓
-Chunking
-    ↓
-Indexing
-    ├── BM25 Index
-    │     └── Lexical Search
-    │
-    └── Sentence Transformer
-          ↓
-       Embeddings
-          ↓
-       FAISS Index
-          └── Semantic Search
-```
-
-The retrieved results are later combined and used as context for the generation stage.
-
----
-
-## 🔍 Hybrid Retrieval
-
-MIL-EVID uses two complementary retrieval methods.
-
-### 1. BM25
-
-BM25 performs lexical/keyword-based retrieval.
-
-It is useful when the query contains:
-
-* Specific names
-* Locations
-* Military terminology
-* Legal terminology
-* Dates
-* Operations
-* Organizations
-* Exact phrases
-
-### 2. FAISS + Sentence Transformers
-
-Sentence Transformer models convert document chunks into dense vector embeddings.
-
-FAISS is then used for efficient similarity search.
-
-This allows the system to retrieve semantically related information even when the exact query words do not appear in the document.
-
-### 3. Hybrid Retrieval
-
-The two retrieval methods are combined to improve recall and relevance:
-
-```text
-User Query
-    │
-    ├───────────────┐
-    ↓               ↓
-  BM25            FAISS
- Lexical         Semantic
- Search           Search
-    │               │
-    └───────┬───────┘
-            ↓
-      Result Fusion
-            ↓
-     Relevant Evidence
+                    User Query
+                        │
+                        ▼
+                 Query Processing
+                        │
+                        ▼
+              ┌───────────────────┐
+              │  Hybrid Retrieval │
+              └─────────┬─────────┘
+                        │
+              ┌─────────┴─────────┐
+              ▼                   ▼
+            BM25               FAISS
+       Lexical Search      Dense Retrieval
+              │                   │
+              └─────────┬─────────┘
+                        ▼
+                Reciprocal Rank
+                    Fusion
+                        │
+                        ▼
+              Cross-Encoder Ranking
+                        │
+                        ▼
+                 Evidence Set
+                        │
+                        ▼
+            Multi-Perspective Analysis
+               ┌────────┼────────┐
+               ▼        ▼        ▼
+            Military   Legal   Historical
+               │        │        │
+               └────────┼────────┘
+                        ▼
+           Verification & Confidence
+                        │
+                        ▼
+              Evidence-Grounded
+                    Response
 ```
 
 ---
 
-## 🧩 Project Architecture
+## Storage Architecture
 
-The project is being developed incrementally in multiple phases.
+Chunk text and database metadata are deliberately separated.
 
-### Phase 1 — Backend Scaffolding
+| Data           | Storage           | Purpose                       |
+| -------------- | ----------------- | ----------------------------- |
+| Chunk text     | Local JSONL files | Source of truth for retrieval |
+| Chunk metadata | PostgreSQL        | Lookup and citation metadata  |
+| Embeddings     | FAISS index files | Dense vector retrieval        |
+| BM25 index     | Local index files | Lexical retrieval             |
 
-* FastAPI application setup
-* Project structure
-* Configuration management
-* Environment variable handling
-* API foundation
-
-### Phase 2 — Dataset & Document Processing
-
-* Dataset preparation
-* Document ingestion
-* Text extraction
-* Cleaning
-* Document normalization
-
-### Phase 3 — Chunking
-
-Documents are divided into smaller chunks suitable for retrieval.
+Chunk text is stored locally in:
 
 ```text
-Document
-   ↓
-Text
-   ↓
-Chunks
-   ↓
-Metadata
+backend/data/processed/chunks/
 ```
 
-Each chunk retains relevant metadata so that retrieved evidence can later be traced back to its source.
-
-### Phase 4 — Indexing
-
-Each chunk is represented in two ways:
+FAISS and BM25 indexes are stored in:
 
 ```text
-Chunks
-   ├── BM25 Index
-   │
-   └── Sentence Transformer
-           ↓
-       Embeddings
-           ↓
-         FAISS
+backend/indexes/faiss/
+backend/indexes/bm25/
 ```
 
-BM25 enables lexical retrieval, while FAISS enables semantic retrieval.
-
-### Upcoming Phases
-
-* Hybrid retrieval
-* Result fusion / ranking
-* Query processing
-* Multi-perspective analysis
-* LLM-based generation
-* Evidence/citation handling
-* API integration
-* Frontend integration
-* Evaluation
+The database stores metadata rather than the full chunk text. This keeps the PostgreSQL database lightweight and prevents large document corpora from consuming database storage unnecessarily.
 
 ---
 
-## 🛠️ Technology Stack
-
-### Backend
-
-* Python
-* FastAPI
-* Pydantic / Pydantic Settings
-* Uvicorn
-
-### Retrieval
-
-* BM25
-* Sentence Transformers
-* FAISS
-
-### Database
-
-* PostgreSQL
-
-### AI / NLP
-
-* Sentence Transformer embeddings
-* Large Language Model for generation
-
-### Development
-
-* Git
-* GitHub
-* Python virtual environment
-
----
-
-## 📁 Project Structure
-
-The structure may evolve as additional phases are implemented.
+## Repository Structure
 
 ```text
 mil-evid-backend/
 │
+├── README.md
+├── .gitignore
+│
 ├── backend/
 │   ├── app/
-│   │   ├── ...
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── database/
+│   │   ├── domain/
+│   │   ├── modules/
+│   │   ├── repositories/
+│   │   ├── services/
+│   │   └── utils/
 │   │
-│   ├── ...
+│   ├── data/
+│   │   ├── raw/
+│   │   ├── processed/
+│   │   ├── dynamic/
+│   │   └── pilot/
+│   │
+│   ├── indexes/
+│   │   ├── faiss/
+│   │   └── bm25/
+│   │
+│   ├── scripts/
+│   ├── tests/
+│   ├── .env.example
+│   └── requirements.txt
 │
-├── data/
-│   └── ...
-│
-├── tests/
-│   └── ...
-│
-├── .env.example
-├── .gitignore
-├── README.md
-├── requirements.txt
 └── ...
 ```
 
 ---
 
-## ⚙️ Installation
+## Technology Stack
+
+### Backend
+
+* Python
+* FastAPI
+* Pydantic
+* Pydantic Settings
+* SQLAlchemy
+* PostgreSQL
+
+### Retrieval & NLP
+
+* BM25
+* Sentence Transformers
+* FAISS
+* Cross-Encoder Reranking
+* Natural Language Inference
+
+### Data Processing
+
+* PDF extraction
+* Text cleaning
+* Normalization
+* Deduplication
+* Chunking
+* Country-scope filtering
+
+---
+
+## Setup
 
 ### 1. Clone the repository
 
@@ -238,157 +204,236 @@ cd mil-evid-backend
 
 ### 2. Create a virtual environment
 
-Windows:
-
 ```bash
 python -m venv .venv
 ```
 
-Activate it:
+Activate it on Windows:
 
 ```bash
 .venv\Scripts\activate
 ```
 
-Linux / macOS:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
 ### 3. Install dependencies
 
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 
 ### 4. Configure environment variables
 
-Create a `.env` file based on `.env.example`.
+Create `.env` from `.env.example`:
 
-```bash
-copy .env.example .env
+```text
+backend/.env.example
+        ↓
+backend/.env
 ```
 
-Do **not** commit `.env` to GitHub.
+Add the required database configuration and optional dynamic-source credentials.
+
+**Never commit `.env` or other credentials to GitHub.**
 
 ---
 
-## ▶️ Running the Backend
+## Running the API
 
-From the backend project directory:
+From the `backend` directory:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API will be available locally at:
+The API will run locally at:
 
 ```text
-http://127.0.0.1:8000
+http://localhost:8000
 ```
 
-FastAPI interactive documentation:
+FastAPI documentation:
 
 ```text
-http://127.0.0.1:8000/docs
+http://localhost:8000/docs
+```
+
+Health check:
+
+```text
+http://localhost:8000/health
 ```
 
 ---
 
-## 📊 Current Project Status
+## Data Ingestion
 
-| Component                       | Status      |
-| ------------------------------- | ----------- |
-| FastAPI backend                 | ✅ Completed |
-| Project scaffolding             | ✅ Completed |
-| Configuration management        | ✅ Completed |
-| Dataset preparation             | ✅ Completed |
-| Document processing             | ✅ Completed |
-| Chunking                        | ✅ Completed |
-| BM25 indexing                   | ✅ Completed |
-| Sentence Transformer embeddings | ✅ Completed |
-| FAISS indexing                  | ✅ Completed |
-| Hybrid retrieval                | 🔄 Next     |
-| Result fusion / ranking         | 🔄 Pending  |
-| Query processing                | 🔄 Pending  |
-| Multi-perspective analysis      | 🔄 Pending  |
-| LLM generation                  | 🔄 Pending  |
-| Evidence / citations            | 🔄 Pending  |
-| Frontend                        | 🔄 Pending  |
-| Evaluation                      | 🔄 Pending  |
+### PDF Sources
 
----
+ICRC and UN Peacemaker documents can be ingested using:
 
-## 🔐 Security
-
-Sensitive configuration values should be stored in environment variables.
-
-The following files should **never** be committed:
-
-```text
-.env
-API keys
-database passwords
-access tokens
-private credentials
-local generated indexes
-large generated datasets
+```bash
+python -m scripts.ingest_pdf_sources
 ```
 
-Use `.env.example` to document required environment variables without exposing their values.
+To process the local chunk store without requiring PostgreSQL:
 
----
+```bash
+python -m scripts.ingest_pdf_sources --skip-db
+```
 
-## 🚧 Development Status
+Individual sources can also be selected:
 
-MIL-EVID is currently under active development.
+```bash
+python -m scripts.ingest_pdf_sources --sources icrc
+python -m scripts.ingest_pdf_sources --sources un_peacemaker
+```
 
-The system is being implemented incrementally, with each phase tested before moving to the next phase.
-
-The current milestone establishes the **document processing, chunking, and indexing foundation required for hybrid retrieval**.
-
----
-
-## 📌 Future Goal
-
-The final system will allow a user to provide a military-related query and receive an evidence-grounded analysis generated from retrieved documents.
-
-Conceptually:
+The ingestion pipeline follows:
 
 ```text
-User Query
-     ↓
-Query Processing
-     ↓
-┌─────────────────────┐
-│   Hybrid Retrieval  │
-│                     │
-│  BM25 + FAISS       │
-└─────────┬───────────┘
+Raw Documents
+      ↓
+PDF Extraction
+      ↓
+Evidence Mapping
+      ↓
+Cleaning
+      ↓
+Normalization
+      ↓
+Deduplication
+      ↓
+Chunking
+      ↓
+Local Chunk Store
+      ↓
+Metadata Store
+```
+
+Country-scope filtering is applied to UN Peacemaker sources before PDF extraction. ICRC legal material is treated as global legal evidence.
+
+---
+
+## Indexing
+
+The indexing phase represents each chunk in two complementary ways:
+
+```text
+                Chunks
+                   │
+          ┌────────┴────────┐
+          ▼                 ▼
+        BM25          Sentence Transformer
+     Lexical Index       Embeddings
+                              │
+                              ▼
+                            FAISS
+```
+
+**BM25** handles exact and keyword-oriented retrieval.
+
+**Sentence Transformer + FAISS** handles semantic similarity.
+
+The next retrieval stage combines these results through **Reciprocal Rank Fusion** and then applies **cross-encoder reranking**.
+
+---
+
+## Architecture Decisions
+
+Several architectural decisions were made during implementation:
+
+1. **One shared NLI adapter** is used for both contradiction detection and claim verification because both tasks rely on entailment/contradiction judgments.
+
+2. **One shared `TextGenerationPort`** provides a common interface for query analysis, perspective analysis, and claim extraction, allowing a future LLM to be integrated without changing the core architecture.
+
+3. **Event/topic pre-clustering** reduces unnecessary pairwise NLI comparisons by restricting contradiction analysis to potentially related evidence.
+
+4. **Dynamic evidence uses a separate FAISS index**, which can be merged with the static retrieval results at query time.
+
+5. **Synchronous SQLAlchemy** is used for database operations, while FastAPI handles asynchronous request execution at the API layer.
+
+6. **Dynamic evidence caching uses PostgreSQL**, allowing freshness information to persist across application restarts.
+
+---
+
+## Testing
+
+Run the test suite from the `backend` directory:
+
+```bash
+pytest
+```
+
+Tests include unit and integration coverage for preprocessing, ingestion, chunking, repositories, and data-source mappings.
+
+---
+
+## Configuration
+
+Configuration is environment-based and managed through:
+
+```text
+backend/app/core/config.py
+```
+
+Configuration includes items such as:
+
+* Database connection
+* Dynamic-source credentials
+* Model names
+* Retrieval parameters
+* Confidence-scoring parameters
+
+See:
+
+```text
+backend/.env.example
+```
+
+for the available configuration variables.
+
+---
+
+## Future Pipeline
+
+The completed system is intended to follow this flow:
+
+```text
+Military Situation Query
           ↓
-   Evidence Ranking
+    Query Analysis
           ↓
- ┌────────────────────┐
- │ Multi-Perspective  │
- │ Analysis           │
- │                    │
- │ Military           │
- │ Legal              │
- │ Historical         │
- └─────────┬──────────┘
-           ↓
-        LLM
-           ↓
- Evidence-Grounded
-      Response
+    Hybrid Retrieval
+    ┌─────┴─────┐
+    ↓           ↓
+  BM25        FAISS
+    └─────┬─────┘
+          ↓
+      RRF Fusion
+          ↓
+ Cross-Encoder Reranking
+          ↓
+   Evidence Selection
+          ↓
+ Multi-Perspective Analysis
+ ┌────────┼─────────┐
+ ↓        ↓         ↓
+Military  Legal  Historical
+ └────────┼─────────┘
+          ↓
+ Contradiction Detection
+          ↓
+   Claim Verification
+          ↓
+ Confidence Scoring
+          ↓
+ Citation-Supported Response
 ```
 
 ---
 
-## 👩‍💻 Project
+## Research / Development Status
 
-**MIL-EVID — Hybrid RAG Backend for Multi-Perspective Military Situation Analysis**
+MIL-EVID is currently a **research prototype under active development**.
 
-Developed as an internship project.
+The current implementation establishes the foundation for evidence ingestion, preprocessing, chunking, local chunk storage, and metadata persistence. Hybrid retrieval and the subsequent analysis pipeline are being implemented incrementally.
