@@ -1,0 +1,37 @@
+# Environment
+
+.env
+.env.*
+!.env.example
+
+# Python
+
+**pycache**/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# Data & indexes (generated, not committed)
+
+backend/data/raw/*
+backend/data/processed/*
+backend/data/dynamic/*
+
+!backend/data/raw/.gitkeep
+!backend/data/processed/.gitkeep
+!backend/data/dynamic/.gitkeep
+
+backend/indexes/faiss/*
+backend/indexes/bm25/*
+
+!backend/indexes/faiss/.gitkeep
+!backend/indexes/bm25/.gitkeep
+
+# OS / editor
+
+.DS_Store
+.idea/
+.vscode/

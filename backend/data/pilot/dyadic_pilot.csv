@@ -1,0 +1,11 @@
+dyad_id,conflict_id,location,side_a,side_a_id,side_a_2nd,side_b,side_b_id,side_b_2nd,incompatibility,territory_name,year,intensity_level,type_of_conflict,start_date,start_prec,start_date2,start_prec2,gwno_a,gwno_a_2nd,gwno_b,gwno_b_2nd,gwno_loc,region,version
+403,202,China,Government of China,135,,PLA,161,,2,,1946,2,3,1946-12-31,7,1946-12-31,7,710,,,,710,3,26.1
+403,202,China,Government of China,135,,PLA,161,,2,,1947,2,3,1946-12-31,7,1946-12-31,7,710,,,,710,3,26.1
+403,202,China,Government of China,135,,PLA,161,,2,,1948,2,3,1946-12-31,7,1946-12-31,7,710,,,,710,3,26.1
+403,202,China,Government of China,135,,PLA,161,,2,,1949,2,3,1946-12-31,7,1946-12-31,7,710,,,,710,3,26.1
+408,207,Israel,Government of United Kingdom,28,,IZL [Etzel],166,,1,Israel,1946,1,1,1939-03-31,4,1946-12-31,5,200,,,,666,2,26.1
+413,210,Russia (Soviet Union),Government of Russia (Soviet Union),57,,Forest Brothers,171,,1,Estonia,1946,1,3,1944-12-31,6,1946-12-31,5,365,,,,365,1,26.1
+413,210,Russia (Soviet Union),Government of Russia (Soviet Union),57,,Forest Brothers,171,,1,Estonia,1947,1,3,1944-12-31,6,1946-12-31,5,365,,,,365,1,26.1
+413,210,Russia (Soviet Union),Government of Russia (Soviet Union),57,,Forest Brothers,171,,1,Estonia,1948,1,3,1944-12-31,6,1946-12-31,5,365,,,,365,1,26.1
+414,211,Russia (Soviet Union),Government of Russia (Soviet Union),57,,LNPA,172,,1,Latvia,1946,1,3,1945-12-31,5,1946-12-31,5,365,,,,365,1,26.1
+415,211,Russia (Soviet Union),Government of Russia (Soviet Union),57,,LTS(p)A,173,,1,Latvia,1946,1,3,1945-12-31,5,1946-12-31,5,365,,,,365,1,26.1

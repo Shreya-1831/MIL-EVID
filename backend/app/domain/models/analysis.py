@@ -1,0 +1,107 @@
+"""Domain models for analysis-stage output.
+
+Covers per-perspective analysis, contradiction detection, claim
+verification, confidence scoring, and the final assembled response
+returned by the API.
+"""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.domain.enums import (
+    ClaimVerificationStatus,
+    ConfidenceLevel,
+    ContradictionStatus,
+    ContradictionType,
+    Perspective,
+)
+from app.domain.models.query import QueryClassification
+
+
+class Citation(BaseModel):
+    """A single citation linking analysis text back to source evidence."""
+
+    model_config = ConfigDict(frozen=True)
+
+    evidence_id: str
+    source: str
+    title: str | None = None
+    url: str | None = None
+
+
+class PerspectiveAnalysisResult(BaseModel):
+    """Output of a single `PerspectiveAnalyzer` (military/legal/historical)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    perspective: Perspective
+    analysis_text: str
+    evidence_ids: tuple[str, ...] = Field(default_factory=tuple)
+    citations: tuple[Citation, ...] = Field(default_factory=tuple)
+
+
+class ContradictionResult(BaseModel):
+    """Outcome of comparing two evidence items for consistency."""
+
+    model_config = ConfigDict(frozen=True)
+
+    evidence_a_id: str
+    evidence_b_id: str
+    status: ContradictionStatus
+    contradiction_type: ContradictionType = ContradictionType.NONE
+    score: float = Field(..., ge=0.0, le=1.0, description="Model confidence in `status`.")
+    explanation: str
+
+
+class ClaimVerificationResult(BaseModel):
+    """Whether a single atomic claim is supported by retrieved evidence."""
+
+    model_config = ConfigDict(frozen=True)
+
+    claim: str
+    supporting_evidence_ids: tuple[str, ...] = Field(default_factory=tuple)
+    support_score: float = Field(..., ge=0.0, le=1.0)
+    status: ClaimVerificationStatus
+    verified: bool
+
+
+class ConfidenceResult(BaseModel):
+    """Explainable confidence score for the overall analysis.
+
+    This is a *system estimate* of how well-grounded the response is
+    given retrieved evidence — not an objective truth claim about the
+    real-world situation. Consumers of the API should surface this
+    distinction to end users.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    relevance_score: float = Field(..., ge=0.0, le=100.0)
+    agreement_score: float = Field(..., ge=0.0, le=100.0)
+    freshness_score: float = Field(..., ge=0.0, le=100.0)
+    source_reliability_score: float = Field(..., ge=0.0, le=100.0)
+    claim_support_score: float = Field(..., ge=0.0, le=100.0)
+    final_score: float = Field(..., ge=0.0, le=100.0)
+    confidence_level: ConfidenceLevel
+    disclaimer: str = Field(
+        default=(
+            "This score is a system-generated estimate of evidence "
+            "grounding, not a measure of real-world certainty."
+        )
+    )
+
+
+class FinalAnalysisResponse(BaseModel):
+    """The complete, structured output of the MIL-EVID pipeline."""
+
+    model_config = ConfigDict(frozen=True)
+
+    query: QueryClassification
+    military_analysis: PerspectiveAnalysisResult
+    legal_analysis: PerspectiveAnalysisResult
+    historical_analysis: PerspectiveAnalysisResult
+    contradictions: tuple[ContradictionResult, ...] = Field(default_factory=tuple)
+    claim_verification: tuple[ClaimVerificationResult, ...] = Field(default_factory=tuple)
+    confidence: ConfidenceResult
+    citations: tuple[Citation, ...] = Field(default_factory=tuple)
