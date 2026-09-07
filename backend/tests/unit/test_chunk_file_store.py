@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 from pathlib import Path
-
+from collections.abc import Sequence
 from app.domain.enums import Perspective, SourceType
 from app.domain.models.evidence import EvidenceDocument
 from app.repositories.chunk_file_store import (
     append_unique_chunks,
     count_chunks,
     read_chunks,
+    get_chunks_by_id,
 )
 
 
@@ -139,3 +140,85 @@ def test_append_unique_chunks_skips_duplicate_ids_within_batch(
 
     assert len(stored_chunks) == 1
     assert stored_chunks[0].text == "First version."
+
+def test_get_chunks_by_id_returns_requested_chunks(
+    tmp_path: Path,
+) -> None:
+    chunks = [
+        make_chunk(
+            chunk_id="doc-001::chunk-0000",
+            text="First evidence text.",
+        ),
+        make_chunk(
+            chunk_id="doc-001::chunk-0001",
+            text="Second evidence text.",
+        ),
+        make_chunk(
+            chunk_id="doc-001::chunk-0002",
+            text="Third evidence text.",
+        ),
+    ]
+
+    append_unique_chunks(
+        chunks,
+        chunk_store_dir=tmp_path,
+    )
+
+    result = get_chunks_by_id(
+        [
+            "doc-001::chunk-0000",
+            "doc-001::chunk-0002",
+        ],
+        chunk_store_dir=tmp_path,
+    )
+
+    assert set(result) == {
+        "doc-001::chunk-0000",
+        "doc-001::chunk-0002",
+    }
+
+    assert result["doc-001::chunk-0000"].text == (
+        "First evidence text."
+    )
+
+    assert result["doc-001::chunk-0002"].text == (
+        "Third evidence text."
+    )
+
+
+def test_get_chunks_by_id_ignores_missing_ids(
+    tmp_path: Path,
+) -> None:
+    chunks = [
+        make_chunk(
+            chunk_id="doc-001::chunk-0000",
+        ),
+    ]
+
+    append_unique_chunks(
+        chunks,
+        chunk_store_dir=tmp_path,
+    )
+
+    result = get_chunks_by_id(
+        [
+            "doc-001::chunk-0000",
+            "does-not-exist",
+        ],
+        chunk_store_dir=tmp_path,
+    )
+
+    assert set(result) == {
+        "doc-001::chunk-0000",
+    }
+
+
+def test_get_chunks_by_id_empty_input(
+    tmp_path: Path,
+) -> None:
+    result = get_chunks_by_id(
+        [],
+        chunk_store_dir=tmp_path,
+    )
+
+    assert result == {}

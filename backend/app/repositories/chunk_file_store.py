@@ -294,3 +294,36 @@ def count_chunks(
         )
 
     return counts
+
+def get_chunks_by_id(
+    chunk_ids: Sequence[str],
+    *,
+    chunk_store_dir: Path,
+) -> dict[str, EvidenceDocument]:
+    """Return requested chunks from the local JSONL chunk store.
+
+    The store remains the source of truth for full chunk text.
+
+    This function scans the local store once for the requested batch
+    and stops as soon as all requested IDs have been found.
+    """
+
+    requested = {
+        chunk_id
+        for chunk_id in chunk_ids
+        if isinstance(chunk_id, str) and chunk_id
+    }
+
+    if not requested:
+        return {}
+
+    found: dict[str, EvidenceDocument] = {}
+
+    for chunk in iter_all_chunks(chunk_store_dir):
+        if chunk.id in requested:
+            found[chunk.id] = chunk
+
+            if len(found) == len(requested):
+                break
+
+    return found

@@ -163,6 +163,23 @@ class Settings(BaseSettings):
         ),
     )
 
+    # --- Local LLM / Ollama ---
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        alias="OLLAMA_BASE_URL",
+    )
+
+    ollama_model: str = Field(
+        default="llama3.2:3b",
+        alias="OLLAMA_MODEL",
+    )
+
+    ollama_timeout_seconds: float = Field(
+        default=120.0,
+        gt=0,
+        alias="OLLAMA_TIMEOUT_SECONDS",
+    )
+
     @property
     def primary_countries(self) -> tuple[str, ...]:
         """Parsed, normalized primary-country list.

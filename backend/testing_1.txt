@@ -1,0 +1,118 @@
+================================================================================     
+MIL-EVID — FULL ANALYSIS PIPELINE
+================================================================================
+
+Enter your military situation query:
+> What are the military, legal, and historical dimensions of armed conflict and civilian protection?
+
+[1/4] Loading retrieval indexes...
+[2/4] Loading cross-encoder reranker...
+[3/4] Initializing evidence context and Llama 3.2 3B...
+[4/4] Running analysis...
+
+Retrieving and reranking evidence...
+2026-09-07 07:35:40 [info     ] embedding_model_loading        model_name=sentence-transformers/all-MiniLM-L6-v2
+
+================================================================================
+MILITARY ANALYSIS
+================================================================================
+The query appears to be related to the principles of international humanitarian law (IHL), specifically the principle of distinction, which distinguishes between the civilian population and combatants, as well as between civilian objects and military objectives. The following analysis is based on evidence from various sources, including the ICRC Customary IHL, international treaties and conventions, and the practices of states.
+
+**The Principle of Distinction**
+
+The principle of distinction is a fundamental principle of IHL, enshrined in Article 48 of the First Protocol to the Geneva Conventions (1977). This principle obliges parties to a conflict to distinguish between the civilian population and combatants, as well as between civilian objects and military objectives. The purpose of this principle is to prevent attacks against civilians and civilian objects, which are protected from attack under international law.
+
+**Prohibition of Attacks on Civilians**
+
+The principle of distinction is closely linked to the prohibition of attacks on civilians. According to Article 51(2) of the First Protocol, the civilian population as such, as well as individual civilians, shall not be the object of attack. This means that parties to a conflict must take all feasible precautions to avoid or minimize harm to civilians and civilian objects.
+
+**Distinction and Proportionality**
+
+The principle of distinction is often complemented by the principle of proportionality, which requires parties to a conflict to take all feasible precautions to avoid or minimize harm to civilians and civilian objects. This means that parties must weigh the military advantage anticipated against the potential harm to civilians and civilian objects, and take steps to minimize that harm.
+
+**State Practices**
+
+The principle of distinction is widely accepted and applied by states. The ICRC Customary IHL evidence highlights the widespread adherence to this principle, with states such as the United Kingdom, Switzerland, and Canada incorporating the principle of distinction into their military manuals and strategies.
+
+**Challenges and Limitations**
+
+Despite the widespread adherence to the principle of distinction, there are challenges and limitations to its implementation. The ICRC Customary IHL evidence highlights the difficulties of distinguishing between combatants and civilians, as well as the need for states to constantly reflect and effort to avoid infringing this principle.
+
+**Conclusion**
+
+In conclusion, the principle of distinction is a fundamental principle of IHL, which obliges parties to a conflict to distinguish between the civilian population and combatants, as well as between civilian objects and military objectives. The principle is closely linked to the prohibition of attacks on civilians and is complemented by the principle of proportionality. State practices demonstrate a widespread adherence to this principle, although challenges and limitations exist.
+
+================================================================================
+LEGAL ANALYSIS
+================================================================================
+The query appears to be related to the principle of distinction in international humanitarian law (IHL), which is a fundamental rule that prohibits attacks against the civilian population and civilian objects. The principle of distinction is enshrined in various IHL treaties and customs, including Protocol I of the Geneva Conventions and the Customary IHL.
+
+Evidence from various sources, including the ICRC Customary IHL, the Manual of the Law of Armed Conflict, and national military manuals such as those from the United Kingdom, Canada, and Switzerland, confirm the principle of distinction and its importance in protecting civilians and civilian objects.
+
+Analysis:
+
+1. **Prohibition on attacks against civilians**: The principle of distinction prohibits attacks against the civilian population and civilian objects. This is a fundamental principle of IHL, as evident from the evidence. The ICRC Customary IHL states: "The civilian population as such, as well as individual civilians, shall not be the object of attack" (Evidence 12).
+2. **Distinction between combatants and non-combatants**: The principle of distinction requires commanders to distinguish between legitimate targets (combatants) and civilian objects and the civilian population. This distinction is essential to prevent harm to civilians and civilian objects. Evidence from national military manuals, such as the UK's Manual of the Law of Armed Conflict (Evidence 18), confirms this principle.
+3. **Protection of civilians**: The principle of distinction is closely linked to the protection of civilians. The ICRC Customary IHL states: "It is interesting to note that the first Protocol makes extensive provision for the protection of civilians in armed conflict" (Evidence 12). Switzerland's Federal Department of Foreign Affairs also emphasizes the importance of protecting civilians in armed conflict (Evidence 17).
+4. **Prohibition on indiscriminate attacks**: The principle of distinction also prohibits indiscriminate attacks, which are attacks that target a civilian population or civilian objects without distinction. Evidence from national military manuals, such as Canada's LOAC Manual (Evidence 20), confirms this principle.
+
+In conclusion, the principle of distinction is a fundamental rule of IHL that prohibits attacks against the civilian population and civilian objects. This principle is enshrined in various treaties and customs, including Protocol I of the Geneva Conventions and the Customary IHL. The evidence from various sources confirms the importance of this principle in protecting civilians and civilian objects.
+
+================================================================================
+HISTORICAL ANALYSIS
+================================================================================
+The query appears to be asking for an analysis of the principle of distinction in international humanitarian law (IHL) and its application in armed conflict. Based on the provided evidence, here is an evidence-grounded analysis of the query:
+
+The principle of distinction is a fundamental rule in IHL that requires parties to a conflict to distinguish between the civilian population and combatants, as well as between civilian objects and military objectives. This principle is enshrined in various treaties and customary international humanitarian law, including the 1977 Additional Protocol I.
+
+The principle of distinction is essential in protecting civilians and civilian objects from attack. The 1977 Additional Protocol I states that "the civilian population and civilian objects shall not be the object of attack" (Article 51(2)). Furthermore, acts or threats of violence with the primary purpose of spreading terror among the civilian population are prohibited (Article 51(2)).
+
+The principle of distinction has been consistently applied by various states in their military operations. For example, the UK's House of Commons written ministerial statement in 2004 notes that "the UK has fully complied with the obligation under international humanitarian law to distinguish between legitimate targets and civilian objects and the civilian population" (Paragraph 93WS).
+
+The principle of distinction also requires parties to a conflict to ensure that civilians and civilian objects are protected against incidental or collateral damage when military objectives are attacked. This is reflected in the Canadian LOAC Manual, which states that "commanders shall at all times distinguish between... civilian objects and military objectives" (Section 4).
+
+The principle of distinction is not only a legal obligation but also a matter of morality and humanity. As Switzerland's Federal Department of Foreign Affairs noted in its Strategy on the Protection of Civilians in Armed Conflict (2009-2012), "the fundamental principle of distinction between civilians and combatants and between civilian objects and military objectives is often challenged, with severe impact for civilian populations" (Paragraph 3).
+
+In conclusion, the principle of distinction is a cornerstone of international humanitarian law that requires parties to a conflict to distinguish between the civilian population and combatants, as well as between civilian objects and military objectives. This principle is essential in protecting civilians and civilian objects from attack and has been consistently applied by various states in their military operations.
+
+References:
+
+* ICRC Customary IHL, Rule 1: The Principle of Distinction between Civilians and Combatants
+* ICRC Customary IHL, Rule 7: Distinction between Civilian Objects and Military Objectives
+* ICRC Customary IHL, Rule 11: Indiscriminate Attacks
+* ICRC Customary IHL, Rule 14: Proportionality
+* United Kingdom, House of Commons, Written ministerial statement by the Foreign Secretary, Hansard, 17 November 2004
+* Switzerland, Federal Department of Foreign Affairs, Protection of Civilians in Armed Conflict, Strategy of the Federal Department of Foreign Affairs 2009-2012
+* Switzerland, The Ten Basic Rules of the Law of Armed Conflict, Aide-memoire 51.007/IIIe
+* Switzerland, Regulation on Legal Bases for Conduct during an Engagement, 2005
+* Canada, The Law of Armed Conflict at the Operational and Tactical Level, Office of the Judge Advocate General, 1999
+* Canada, The Law of Armed Conflict at the Operational and Tactical Level, Office of the Judge Advocate General, 2001
+* United Kingdom of Great Britain and Northern Ireland, Foreign and Commonwealth Office, Government Strategy on the Protection of Civilians in Armed Conflict, March 2010
+
+================================================================================
+EVIDENCE USED
+================================================================================
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0018
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0691
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0088
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0260
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0082
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0216
+- icrc::icrc/customary_ihl/rule_08_military_objectives/rule_08_Practice.pdf::chunk-0102
+- icrc::icrc/customary_ihl/rule_11_indiscriminate_attacks.md/rule_11_Practice.pdf::chunk-0089
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0438
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0061
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0532
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0136
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0364
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0388
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0118
+- icrc::icrc/customary_ihl/rule_11_indiscriminate_attacks.md/rule_11_Practice.pdf::chunk-0166
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0050
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0016
+
+================================================================================
+ANALYSIS COMPLETE
+================================================================================

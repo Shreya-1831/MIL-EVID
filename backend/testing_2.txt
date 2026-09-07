@@ -1,0 +1,86 @@
+(.venv) PS C:\Users\Windows\Downloads\mil-evid-backend\backend> python -m scripts.full_analysis                                                             
+================================================================================
+MIL-EVID — FULL ANALYSIS PIPELINE
+================================================================================
+
+Enter your military situation query:
+> How has the conflict in Ukraine affected civilian populations, and what do international humanitarian law and historical patterns of warfare suggest about the protection of civilians?
+
+[1/4] Loading retrieval indexes...
+[2/4] Loading cross-encoder reranker...
+[3/4] Initializing evidence context and Llama 3.2 3B...
+[4/4] Running analysis...
+
+Retrieving and reranking evidence...
+2026-09-07 07:57:37 [info     ] embedding_model_loading        model_name=sentence-transformers/all-MiniLM-L6-v2
+
+================================================================================
+MILITARY ANALYSIS
+================================================================================
+Based on the provided evidence, the conflict in Ukraine has had a significant impact on civilian populations. The evidence suggests that international humanitarian law (IHL) principles, such as the principle of distinction and the prohibition of indiscriminate attacks, are relevant to the protection of civilians in this context.
+
+The ICRC Customary IHL rules (Evidence 1 and 3) emphasize the importance of distinguishing between civilians and combatants, as well as between civilian objects and military objectives. Ukraine's IHL Manual (2004) and the UK LOAC Pamphlet (1981) explicitly state that launching attacks of an indiscriminate character in the knowledge that such attack will cause incidental loss of life or injury to civilians or damage to civilian objects is a serious violation of IHL.
+
+The ICRC IHL Treaty (Evidence 2) also provides guidance on the protection of civilians, stating that the provisions of this Section apply to any land, air, or sea warfare that may affect the civilian population, individual civilians, or civilian objects on land.
+
+Historical patterns of warfare suggest that civilians are often the most vulnerable to the consequences of hostilities. The ICRC Customary IHL rules (Evidence 1 and 3) and the UK Military Manual (1958) (Evidence 4) emphasize the importance of distinguishing between civilians and combatants, as well as between civilian objects and military objectives, to prevent targeting the civilian population and indiscriminate attacks.
+
+The statements by South Africa's Minister of International Relations and
+
+================================================================================
+LEGAL ANALYSIS
+================================================================================
+**Analysis of the Conflict in Ukraine and its Impact on Civilian Populations**
+
+The conflict in Ukraine has resulted in significant harm to civilian populations, with numerous reports of indiscriminate attacks, disproportionate use of force, and targeting of civilians. International humanitarian law (IHL) and historical patterns of warfare suggest that these actions are prohibited and may amount to serious violations of IHL.
+
+**Protection of Civilians under International Humanitarian Law**
+
+IHL provides a framework for the protection of civilians in armed conflict. The principle of distinction, enshrined in Article 51 of Additional Protocol I, obliges parties to distinguish between civilians and combatants, as well as between civilian objects and military objectives. This principle is further reinforced by the principle of proportionality, which requires that the harm caused to civilians be proportionate to the military advantage anticipated.
+
+**Indiscriminate Attacks and Proportionality**
+
+The conflict in Ukraine has seen numerous reports of indiscriminate attacks, including aerial bombardments and artillery strikes that have resulted in significant civilian casualties. IHL prohibits indiscriminate attacks, which are defined as attacks that are not directed at a specific military objective and are likely to cause incidental loss of life or injury to civilians or damage to civilian objects. The use of disproportionate force, which causes harm to civilians that is excessive in relation to the anticipated military advantage, is also prohibited.
+
+**Historical Patterns of Warfare**
+
+Historical patterns of warfare have consistently shown that the targeting of civilians and the use of indiscriminate and disproportionate force
+
+================================================================================
+HISTORICAL ANALYSIS
+================================================================================
+**Analysis of the Conflict in Ukraine and its Impact on Civilian Populations**
+
+The conflict in Ukraine has resulted in significant harm to civilian populations, with reports of indiscriminate attacks, disproportionate use of force, and targeting of civilians. International humanitarian law (IHL) provides a framework for protecting civilians in armed conflict.
+
+**Historical Context and Precedents**
+
+The principles of distinction and proportionality are fundamental to IHL, which obliges parties to a conflict to distinguish between civilians and combatants, and between civilian objects and military objectives (ICRC Customary IHL, Rule 07: Distinction between Objects). The principle of distinction is considered "basic" by the drafters of Additional Protocol I (ICRC Customary IHL, Rule 07: Distinction between Objects).
+
+**Protection of Civilians**
+
+International humanitarian law prohibits attacks against civilians and civilian objects, including indiscriminate attacks that cause incidental loss of life or injury to civilians or damage to civilian objects (ICRC Customary IHL, Rule 11: Indiscriminate Attacks). The ICRC's 2009 Protection of Civilians in Armed Conflict Strategy emphasizes the need to protect civilians from the effects of hostilities.
+
+**Development of International Humanitarian Law**
+
+The concept of terrorism has not yet been defined in international law, but the ICRC's 2009 ABC of International Humanitarian Law highlights the importance of distinguishing between civilians and combatants, and between civilian objects and military objectives.
+
+**International Response**
+
+The General Assembly
+
+================================================================================
+EVIDENCE USED
+================================================================================
+- icrc::icrc/customary_ihl/rule_11_indiscriminate_attacks.md/rule_11_Practice.pdf::chunk-0045
+- icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0115
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0059
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0673
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0459
+- icrc::icrc/customary_ihl/rule_11_indiscriminate_attacks.md/rule_11_Practice.pdf::chunk-0150
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0291
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0059
+
+================================================================================
+ANALYSIS COMPLETE
+================================================================================
