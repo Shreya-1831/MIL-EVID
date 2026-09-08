@@ -114,16 +114,27 @@ class EvidenceAnalyzer:
     ) -> str:
         """Format the query and retrieved evidence."""
 
+        direct_ids = set(context.direct_evidence_ids)
+        contextual_ids = set(context.contextual_evidence_ids)
+
         evidence_sections: list[str] = []
 
         for index, evidence in enumerate(
             context.evidence,
             start=1,
         ):
+            if evidence.evidence_id in direct_ids:
+                evidence_type = "DIRECT EVIDENCE"
+            elif evidence.evidence_id in contextual_ids:
+                evidence_type = "CONTEXTUAL EVIDENCE"
+            else:
+                evidence_type = "RETRIEVED EVIDENCE"
+
             evidence_sections.append(
                 "\n".join(
                     [
                         f"[Evidence {index}]",
+                        f"Type: {evidence_type}",
                         f"ID: {evidence.evidence_id}",
                         f"Source: {evidence.source}",
                         f"Text: {evidence.text}",
@@ -137,5 +148,19 @@ class EvidenceAnalyzer:
             f"Query:\n{context.query}\n\n"
             "Retrieved evidence:\n"
             f"{evidence_text}\n\n"
+            "Evidence-use rules:\n"
+            "1. Treat DIRECT EVIDENCE as evidence specifically relevant "
+            "to the queried situation.\n"
+            "2. Treat CONTEXTUAL EVIDENCE only as background or general "
+            "context.\n"
+            "3. Do not treat contextual evidence as proof that an event, "
+            "actor, agreement, date, or legal fact occurred in the "
+            "queried situation.\n"
+            "4. Do not transfer facts, actors, dates, agreements, events, "
+            "or legal conclusions from a different country pair, conflict, "
+            "border, location, or historical event to the query.\n"
+            "5. If direct evidence is insufficient, explicitly state that "
+            "the evidence is insufficient rather than filling the gap "
+            "from contextual evidence.\n\n"
             "Provide an evidence-grounded analysis of the query."
         )

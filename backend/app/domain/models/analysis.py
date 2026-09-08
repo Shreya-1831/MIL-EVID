@@ -52,7 +52,16 @@ class EvidenceContext(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     query: str
+
     evidence: tuple[AnalysisEvidence, ...] = Field(
+        default_factory=tuple
+    )
+
+    direct_evidence_ids: tuple[str, ...] = Field(
+        default_factory=tuple
+    )
+
+    contextual_evidence_ids: tuple[str, ...] = Field(
         default_factory=tuple
     )
 

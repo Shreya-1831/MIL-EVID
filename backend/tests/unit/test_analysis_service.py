@@ -21,7 +21,6 @@ def make_context() -> EvidenceContext:
         original_rrf_score=0.03,
         ranks=(1,),
     )
-
     return EvidenceContext(
         query="What happened?",
         evidence=(evidence,),
@@ -33,12 +32,14 @@ def make_service() -> tuple[AnalysisService, dict]:
     reranker = Mock()
     context_builder = Mock()
     analyzer = Mock()
+    evidence_guard = Mock()
 
     service = AnalysisService(
         retriever=retriever,
         reranker=reranker,
         context_builder=context_builder,
         analyzer=analyzer,
+        evidence_guard=evidence_guard,
     )
 
     return service, {
@@ -46,6 +47,7 @@ def make_service() -> tuple[AnalysisService, dict]:
         "reranker": reranker,
         "context_builder": context_builder,
         "analyzer": analyzer,
+        "evidence_guard": evidence_guard,
     }
 
 
@@ -64,8 +66,8 @@ def test_build_context_returns_empty_context_when_no_results() -> None:
 
     assert result.query == "What happened?"
     assert result.evidence == ()
-
     mocks["reranker"].rerank.assert_not_called()
+    mocks["evidence_guard"].filter.assert_not_called()
 
 
 def test_analyze_passes_context_to_analyzer() -> None:
@@ -74,7 +76,6 @@ def test_analyze_passes_context_to_analyzer() -> None:
     mocks["retriever"].search.return_value = []
 
     context = make_context()
-
     mocks["context_builder"].build.return_value = context
 
     expected = (
@@ -82,7 +83,6 @@ def test_analyze_passes_context_to_analyzer() -> None:
         Mock(),
         Mock(),
     )
-
     mocks["analyzer"].analyze.return_value = expected
 
     result = service.analyze(
@@ -91,9 +91,12 @@ def test_analyze_passes_context_to_analyzer() -> None:
 
     assert result == expected
 
-    mocks["analyzer"].analyze.assert_called_once_with(
-        context=context,
-    )
+    mocks["analyzer"].analyze.assert_called_once()
+
+    analyzed_context = mocks["analyzer"].analyze.call_args.kwargs["context"]
+
+    assert analyzed_context.query == context.query
+    assert analyzed_context.evidence == context.evidence
 
 
 def test_build_context_runs_retrieval_and_reranking() -> None:
@@ -123,6 +126,13 @@ def test_build_context_runs_retrieval_and_reranking() -> None:
     context = make_context()
     mocks["context_builder"].build.return_value = context
 
+    # Make the guard pass the evidence through unchanged.
+    guard_result = Mock()
+    guard_result.direct_evidence = context.evidence
+    guard_result.contextual_evidence = ()
+
+    mocks["evidence_guard"].filter.return_value = guard_result
+
     # Avoid filesystem access in this orchestration test.
     service._resolve_chunk_texts = Mock(
         return_value={
@@ -136,7 +146,10 @@ def test_build_context_runs_retrieval_and_reranking() -> None:
         rerank_top_k=5,
     )
 
-    assert result == context
+    assert result.query == context.query
+    assert result.evidence == context.evidence
+    assert result.direct_evidence_ids == ("chunk-001",)
+    assert result.contextual_evidence_ids == ()
 
     mocks["retriever"].search.assert_called_once_with(
         "What happened?",
@@ -155,4 +168,9 @@ def test_build_context_runs_retrieval_and_reranking() -> None:
     mocks["context_builder"].build.assert_called_once_with(
         query="What happened?",
         reranked_results=[reranked_result],
+    )
+
+    mocks["evidence_guard"].filter.assert_called_once_with(
+        query="What happened?",
+        evidence=context.evidence,
     )

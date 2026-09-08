@@ -7,6 +7,7 @@ from pathlib import Path
 from app.core.config import get_settings
 from app.modules.analysis.analyzer import EvidenceAnalyzer
 from app.modules.analysis.context_builder import EvidenceContextBuilder
+from app.modules.analysis.evidence_guard import EvidenceConsistencyGuard
 from app.modules.analysis.llm_client import OllamaClient
 from app.modules.retrieval.hybrid_retriever import HybridRetriever
 from app.modules.retrieval.reranker import CrossEncoderReranker
@@ -56,11 +57,14 @@ def main() -> None:
         llm_client=llm_client,
     )
 
+    evidence_guard = EvidenceConsistencyGuard()
+
     service = AnalysisService(
         retriever=retriever,
         reranker=reranker,
         context_builder=context_builder,
         analyzer=analyzer,
+        evidence_guard=evidence_guard,
     )
 
     print("[4/4] Running analysis...")
