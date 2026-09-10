@@ -1,26 +1,32 @@
-"""LangChain Ollama LLM client."""
+"""Fast, bounded-concurrency LangChain Ollama client for MIL-EVID."""
 
 from __future__ import annotations
+
+import time
 
 from langchain_ollama import ChatOllama
 
 
 class OllamaClient:
-    """Minimal LangChain wrapper for local Ollama."""
+    """Minimal Ollama wrapper with warm-model and output-budget controls."""
 
     def __init__(
         self,
         *,
         base_url: str,
         model: str,
-        timeout_seconds: float = 300.0,
+        timeout_seconds: float = 120.0,
+        # num_predict: int = 350,
+        num_predict: int = 220,
+        keep_alive: str = "24h",
     ) -> None:
         self._model = ChatOllama(
             model=model,
             base_url=base_url,
             temperature=0.2,
-            num_predict=500,
+            num_predict=num_predict,
             timeout=timeout_seconds,
+            keep_alive=keep_alive,
         )
 
     @property
@@ -33,12 +39,20 @@ class OllamaClient:
         system_prompt: str,
         user_prompt: str,
     ) -> str:
-        response = self._model.invoke(
-            [
-                ("system", system_prompt),
-                ("human", user_prompt),
-            ]
-        )
+        """Generate a normal text response and report generation time."""
+
+        start = time.perf_counter()
+
+        try:
+            response = self._model.invoke(
+                [
+                    ("system", system_prompt),
+                    ("human", user_prompt),
+                ]
+            )
+        finally:
+            elapsed = time.perf_counter() - start
+            print(f"[LLM TIMING] generate: {elapsed:.2f}s")
 
         content = response.content
 
@@ -54,23 +68,27 @@ class OllamaClient:
         user_prompt: str,
         schema: dict,
     ) -> dict:
-        """Generate a response constrained to the supplied JSON schema."""
+        """Generate a structured response constrained to the supplied JSON schema."""
 
-        structured_model = self._model.with_structured_output(
-            schema,
-            method="json_schema",
-        )
+        start = time.perf_counter()
 
-        response = structured_model.invoke(
-            [
-                ("system", system_prompt),
-                ("human", user_prompt),
-            ]
-        )
+        try:
+            structured_model = self._model.with_structured_output(
+                schema,
+                method="json_schema",
+            )
+
+            response = structured_model.invoke(
+                [
+                    ("system", system_prompt),
+                    ("human", user_prompt),
+                ]
+            )
+        finally:
+            elapsed = time.perf_counter() - start
+            print(f"[LLM TIMING] generate_structured: {elapsed:.2f}s")
 
         if not isinstance(response, dict):
-            raise RuntimeError(
-                "Ollama returned an invalid structured response."
-            )
+            raise RuntimeError("Ollama returned an invalid structured response.")
 
         return response

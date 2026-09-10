@@ -30,12 +30,17 @@ def make_evidence(
 
 def test_detects_contradiction():
     llm = Mock()
-    llm.generate.return_value = (
-        '{"status":"CONTRADICTION",'
-        '"contradiction_type":"FACTUAL",'
-        '"score":0.95,'
-        '"explanation":"The evidence gives incompatible facts."}'
-    )
+    llm.generate_structured.return_value = {
+        "results": [
+            {
+                "pair_index": 1,
+                "status": "CONTRADICTION",
+                "contradiction_type": "FACTUAL",
+                "score": 0.95,
+                "explanation": "The evidence gives incompatible facts.",
+            }
+        ]
+    }
 
     detector = ContradictionDetector(llm)
 
@@ -54,18 +59,31 @@ def test_detects_contradiction():
 
 def test_detects_entailment():
     llm = Mock()
-    llm.generate.return_value = (
-        '{"status":"ENTAILMENT",'
-        '"contradiction_type":"NONE",'
-        '"score":0.90,'
-        '"explanation":"Both evidence items support the same fact."}'
-    )
+    llm.generate_structured.return_value = {
+        "results": [
+            {
+                "pair_index": 1,
+                "status": "ENTAILMENT",
+                "contradiction_type": "NONE",
+                "score": 0.90,
+                "explanation": (
+                    "Both evidence items support the same fact."
+                ),
+            }
+        ]
+    }
 
     detector = ContradictionDetector(llm)
 
     evidence = (
-        make_evidence("a", "Shelling occurred near the border."),
-        make_evidence("b", "Artillery fire was reported near the border."),
+        make_evidence(
+            "a",
+            "Shelling occurred near the border.",
+        ),
+        make_evidence(
+            "b",
+            "Artillery fire was reported near the border.",
+        ),
     )
 
     result = detector.detect(evidence=evidence)
@@ -77,18 +95,31 @@ def test_detects_entailment():
 
 def test_detects_neutral():
     llm = Mock()
-    llm.generate.return_value = (
-        '{"status":"NEUTRAL",'
-        '"contradiction_type":"NONE",'
-        '"score":0.20,'
-        '"explanation":"The evidence concerns different facts."}'
-    )
+    llm.generate_structured.return_value = {
+        "results": [
+            {
+                "pair_index": 1,
+                "status": "NEUTRAL",
+                "contradiction_type": "NONE",
+                "score": 0.20,
+                "explanation": (
+                    "The evidence concerns different facts."
+                ),
+            }
+        ]
+    }
 
     detector = ContradictionDetector(llm)
 
     evidence = (
-        make_evidence("a", "A ceasefire was announced."),
-        make_evidence("b", "Three civilians were displaced."),
+        make_evidence(
+            "a",
+            "A ceasefire was announced.",
+        ),
+        make_evidence(
+            "b",
+            "Three civilians were displaced.",
+        ),
     )
 
     result = detector.detect(evidence=evidence)
@@ -99,7 +130,9 @@ def test_detects_neutral():
 
 def test_invalid_llm_response_is_uncertain():
     llm = Mock()
-    llm.generate.return_value = "not valid json"
+    llm.generate_structured.side_effect = RuntimeError(
+        "Invalid structured response"
+    )
 
     detector = ContradictionDetector(llm)
 
@@ -123,17 +156,36 @@ def test_empty_evidence_returns_no_results():
     result = detector.detect(evidence=())
 
     assert result == ()
-    llm.generate.assert_not_called()
+    llm.generate_structured.assert_not_called()
 
 
 def test_three_evidence_items_create_three_pairs():
     llm = Mock()
-    llm.generate.return_value = (
-        '{"status":"NEUTRAL",'
-        '"contradiction_type":"NONE",'
-        '"score":0.1,'
-        '"explanation":"No contradiction."}'
-    )
+    llm.generate_structured.return_value = {
+        "results": [
+            {
+                "pair_index": 1,
+                "status": "NEUTRAL",
+                "contradiction_type": "NONE",
+                "score": 0.1,
+                "explanation": "No contradiction.",
+            },
+            {
+                "pair_index": 2,
+                "status": "NEUTRAL",
+                "contradiction_type": "NONE",
+                "score": 0.1,
+                "explanation": "No contradiction.",
+            },
+            {
+                "pair_index": 3,
+                "status": "NEUTRAL",
+                "contradiction_type": "NONE",
+                "score": 0.1,
+                "explanation": "No contradiction.",
+            },
+        ]
+    }
 
     detector = ContradictionDetector(llm)
 
@@ -146,4 +198,4 @@ def test_three_evidence_items_create_three_pairs():
     result = detector.detect(evidence=evidence)
 
     assert len(result) == 3
-    assert llm.generate.call_count == 3
+    assert llm.generate_structured.call_count == 1

@@ -23,8 +23,9 @@ def make_context() -> EvidenceContext:
     return EvidenceContext(
         query="What happened during the conflict?",
         evidence=(evidence,),
+        direct_evidence_ids=("chunk-001",),
+        contextual_evidence_ids=(),
     )
-
 
 def make_grounded_context() -> EvidenceContext:
     direct_evidence = AnalysisEvidence(
@@ -140,7 +141,7 @@ def test_analyzer_passes_query_and_evidence_to_llm() -> None:
     assert "Armed forces conducted military operations." in military_prompt
 
 
-def test_analyzer_labels_direct_and_contextual_evidence() -> None:
+def test_analyzer_keeps_only_relevant_perspective_evidence() -> None:
     llm = make_llm()
 
     analyzer = EvidenceAnalyzer(llm)
@@ -152,19 +153,103 @@ def test_analyzer_labels_direct_and_contextual_evidence() -> None:
     calls = llm.generate_structured.call_args_list
 
     military_prompt = calls[0].kwargs["user_prompt"]
+    legal_prompt = calls[1].kwargs["user_prompt"]
     historical_prompt = calls[2].kwargs["user_prompt"]
 
-    assert "DIRECT EVIDENCE" in military_prompt
     assert "direct-001" in military_prompt
-
-    assert "CONTEXTUAL EVIDENCE" in historical_prompt
-    assert "context-001" in historical_prompt
-
     assert "context-001" not in military_prompt
+
+    assert "direct-001" not in legal_prompt
+    assert "context-001" not in legal_prompt
+
+    assert "context-001" in historical_prompt
     assert "direct-001" not in historical_prompt
 
 
-def test_analyzer_instructs_llm_not_to_transfer_cross_conflict_facts() -> None:
+def test_analyzer_labels_direct_and_contextual_evidence() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(
+        context=make_context(),
+    )
+
+    prompt = llm.generate_structured.call_args_list[0].kwargs[
+        "user_prompt"
+    ]
+
+    assert "DIRECT" in prompt
+    assert "chunk-001" in prompt
+
+
+def test_analyzer_includes_contextual_evidence_when_relevant() -> None:
+    llm = make_llm()
+
+    direct = AnalysisEvidence(
+        evidence_id="direct-001",
+        text="A historical ceasefire was recorded.",
+        source="UCDP",
+        source_type=SourceType.UCDP,
+        perspective=Perspective.HISTORICAL,
+        reranker_score=0.70,
+        original_rrf_score=0.03,
+        ranks=(1,),
+    )
+
+    contextual = AnalysisEvidence(
+        evidence_id="context-001",
+        text="A second historical development was recorded.",
+        source="UN Peacemaker",
+        source_type=SourceType.UN_PEACEMAKER,
+        perspective=Perspective.HISTORICAL,
+        reranker_score=0.60,
+        original_rrf_score=0.02,
+        ranks=(2,),
+    )
+
+    context = EvidenceContext(
+        query="Historical conflict development",
+        evidence=(direct, contextual),
+        direct_evidence_ids=("direct-001",),
+        contextual_evidence_ids=("context-001",),
+    )
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(context=context)
+
+    historical_prompt = llm.generate_structured.call_args_list[2].kwargs[
+        "user_prompt"
+    ]
+
+    assert "direct-001" in historical_prompt
+    assert "context-001" in historical_prompt
+
+    assert historical_prompt.index("direct-001") < (
+        historical_prompt.index("context-001")
+    )
+
+
+def test_analyzer_instructs_llm_not_to_use_outside_knowledge() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(context=make_context())
+
+    calls = llm.generate_structured.call_args_list
+
+    system_prompt = calls[0].kwargs["system_prompt"].lower()
+    user_prompt = calls[0].kwargs["user_prompt"].lower()
+
+    assert "only the supplied evidence" in system_prompt
+    assert "do not use outside knowledge" in system_prompt
+    assert "do not invent facts" in system_prompt
+    assert "evidence" in user_prompt
+
+
+def test_analyzer_blocks_cross_conflict_fact_transfer() -> None:
     llm = make_llm()
 
     analyzer = EvidenceAnalyzer(llm)
@@ -173,16 +258,25 @@ def test_analyzer_instructs_llm_not_to_transfer_cross_conflict_facts() -> None:
         context=make_grounded_context(),
     )
 
-    user_prompt = llm.generate_structured.call_args.kwargs[
-        "user_prompt"
-    ]
+    system_prompt = (
+        llm.generate_structured.call_args_list[0]
+        .kwargs["system_prompt"]
+        .lower()
+    )
 
-    prompt_lower = user_prompt.lower()
+    user_prompt = (
+        llm.generate_structured.call_args_list[0]
+        .kwargs["user_prompt"]
+        .lower()
+    )
 
-    assert "different country pair" in prompt_lower
-    assert "conflict" in prompt_lower
-    assert "do not transfer facts" in prompt_lower
-    assert "contextual evidence" in prompt_lower
+    assert "never transfer facts" in system_prompt
+    assert (
+        "different conflict" in system_prompt
+        or "another conflict" in system_prompt
+    )
+    assert "do not transfer facts" in user_prompt
+    assert "evidence" in user_prompt
 
 
 def test_user_prompt_blocks_cross_conflict_application() -> None:
@@ -193,9 +287,11 @@ def test_user_prompt_blocks_cross_conflict_application() -> None:
         perspective=Perspective.MILITARY,
     )
 
-    assert "different country pair" in prompt
-    assert "must not" in prompt.lower()
-    assert "applies to the queried situation" in prompt
+    prompt_lower = prompt.lower()
+
+    assert "do not present unsupported assumptions as facts" in prompt_lower
+    assert "evidence" in prompt_lower
+    assert "supplied evidence" in prompt_lower
 
 
 def test_analyzer_populates_citations() -> None:
@@ -316,39 +412,39 @@ def test_analyzer_prioritizes_matching_perspective_evidence() -> None:
     assert "legal-001" not in historical_prompt
 
 
-def test_analyzer_preserves_direct_before_contextual_evidence() -> None:
+def test_analyzer_orders_relevant_evidence_by_reranker_score() -> None:
     llm = make_llm()
 
-    direct = AnalysisEvidence(
-        evidence_id="direct-001",
-        text="Direct evidence.",
+    lower = AnalysisEvidence(
+        evidence_id="lower-score",
+        text="Lower ranked military evidence.",
         source="UCDP",
         source_type=SourceType.UCDP,
         perspective=Perspective.MILITARY,
-        reranker_score=0.50,
+        reranker_score=0.40,
+        original_rrf_score=0.02,
+        ranks=(2,),
+    )
+
+    higher = AnalysisEvidence(
+        evidence_id="higher-score",
+        text="Higher ranked military evidence.",
+        source="UCDP",
+        source_type=SourceType.UCDP,
+        perspective=Perspective.MILITARY,
+        reranker_score=0.90,
         original_rrf_score=0.03,
         ranks=(1,),
     )
 
-    contextual = AnalysisEvidence(
-        evidence_id="context-001",
-        text="Contextual military evidence.",
-        source="UCDP",
-        source_type=SourceType.UCDP,
-        perspective=Perspective.MILITARY,
-        reranker_score=0.99,
-        original_rrf_score=0.04,
-        ranks=(2,),
-    )
-
     context = EvidenceContext(
         query="Military situation",
-        evidence=(
-            direct,
-            contextual,
+        evidence=(lower, higher),
+        direct_evidence_ids=(
+            "lower-score",
+            "higher-score",
         ),
-        direct_evidence_ids=("direct-001",),
-        contextual_evidence_ids=("context-001",),
+        contextual_evidence_ids=(),
     )
 
     analyzer = EvidenceAnalyzer(llm)
@@ -359,9 +455,228 @@ def test_analyzer_preserves_direct_before_contextual_evidence() -> None:
         "user_prompt"
     ]
 
-    assert "direct-001" in prompt
-    assert "context-001" in prompt
-
-    assert prompt.index("direct-001") < prompt.index(
-        "context-001"
+    assert prompt.index("higher-score") < prompt.index(
+        "lower-score"
     )
+
+
+def test_analyzer_limits_perspective_evidence_to_eight_items() -> None:
+    llm = make_llm()
+
+    evidence = tuple(
+        AnalysisEvidence(
+            evidence_id=f"military-{index:02d}",
+            text=f"Military evidence item {index}.",
+            source="UCDP",
+            source_type=SourceType.UCDP,
+            perspective=Perspective.MILITARY,
+            reranker_score=1.0 - index * 0.01,
+            original_rrf_score=0.03,
+            ranks=(index,),
+        )
+        for index in range(12)
+    )
+
+    context = EvidenceContext(
+        query="Military situation",
+        evidence=evidence,
+        direct_evidence_ids=tuple(
+            item.evidence_id for item in evidence
+        ),
+        contextual_evidence_ids=(),
+    )
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(context=context)
+
+    prompt = llm.generate_structured.call_args_list[0].kwargs[
+        "user_prompt"
+    ]
+
+    for index in range(8):
+        assert f"military-{index:02d}" in prompt
+
+    for index in range(8, 12):
+        assert f"military-{index:02d}" not in prompt
+
+
+def test_analyzer_handles_empty_evidence() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    context = EvidenceContext(
+        query="What happened?",
+        evidence=(),
+        direct_evidence_ids=(),
+        contextual_evidence_ids=(),
+    )
+
+    analyzer.analyze(context=context)
+
+    assert llm.generate_structured.call_count == 3
+
+
+def test_analyzer_generates_only_structured_requests() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(context=make_context())
+
+    assert llm.generate_structured.call_count == 3
+    assert llm.generate.call_count == 0
+
+
+def test_analyzer_requires_atomic_claims_in_prompt() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(context=make_context())
+
+    system_prompt = (
+        llm.generate_structured.call_args_list[0]
+        .kwargs["system_prompt"]
+        .lower()
+    )
+
+    user_prompt = (
+        llm.generate_structured.call_args_list[0]
+        .kwargs["user_prompt"]
+        .lower()
+    )
+
+    assert "atomic claims" in system_prompt
+    assert "one independently verifiable fact" in system_prompt
+    assert "each generated claim" in user_prompt
+
+
+def test_analyzer_blocks_malformed_date_generation() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(context=make_context())
+
+    system_prompt = (
+        llm.generate_structured.call_args_list[0]
+        .kwargs["system_prompt"]
+        .lower()
+    )
+
+    user_prompt = (
+        llm.generate_structured.call_args_list[0]
+        .kwargs["user_prompt"]
+        .lower()
+    )
+
+    assert "never convert dates or timestamps into times" in system_prompt
+    assert "preserve the date exactly as written" in system_prompt
+    assert "malformed" in system_prompt
+    assert "do not modify dates" not in user_prompt
+
+
+def test_analyzer_distinguishes_legal_principle_from_violation() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    context = EvidenceContext(
+        query="Legal assessment of an attack",
+        evidence=(
+            AnalysisEvidence(
+                evidence_id="legal-001",
+                text=(
+                    "The principle of proportionality prohibits "
+                    "excessive incidental civilian harm."
+                ),
+                source="ICRC Customary IHL",
+                source_type=SourceType.ICRC_IHL,
+                perspective=Perspective.LEGAL,
+                reranker_score=0.95,
+                original_rrf_score=0.04,
+                ranks=(1,),
+            ),
+        ),
+        direct_evidence_ids=("legal-001",),
+        contextual_evidence_ids=(),
+    )
+
+    analyzer.analyze(context=context)
+
+    system_prompt = (
+        llm.generate_structured.call_args_list[1]
+        .kwargs["system_prompt"]
+        .lower()
+    )
+
+    user_prompt = (
+        llm.generate_structured.call_args_list[1]
+        .kwargs["user_prompt"]
+        .lower()
+    )
+
+    assert "do not conclude" in system_prompt
+    assert "particular attack was unlawful" in system_prompt
+    assert "particular attack" in system_prompt
+    assert "legal principle" in user_prompt
+    assert "unlawful" in user_prompt
+
+
+def test_analyzer_blocks_unsupported_historical_background() -> None:
+    llm = make_llm()
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    analyzer.analyze(context=make_context())
+
+    system_prompt = (
+        llm.generate_structured.call_args_list[2]
+        .kwargs["system_prompt"]
+        .lower()
+    )
+
+    user_prompt = (
+        llm.generate_structured.call_args_list[2]
+        .kwargs["user_prompt"]
+        .lower()
+    )
+
+    assert "do not introduce historical background" in system_prompt
+    assert "do not introduce" in system_prompt
+    assert "historical background" in user_prompt
+
+
+def test_analyzer_preserves_citation_metadata() -> None:
+    llm = make_llm()
+
+    evidence = AnalysisEvidence(
+        evidence_id="citation-001",
+        text="A documented military event occurred.",
+        source="UCDP",
+        source_type=SourceType.UCDP,
+        perspective=Perspective.MILITARY,
+        title="UCDP Event",
+        url="https://example.org/ucdp-event",
+        reranker_score=0.90,
+        original_rrf_score=0.04,
+        ranks=(1,),
+    )
+
+    context = EvidenceContext(
+        query="Military event",
+        evidence=(evidence,),
+        direct_evidence_ids=("citation-001",),
+        contextual_evidence_ids=(),
+    )
+
+    analyzer = EvidenceAnalyzer(llm)
+
+    military, _, _ = analyzer.analyze(context=context)
+
+    assert military.citations[0].evidence_id == "citation-001"
+    assert military.citations[0].source == "UCDP"
+    assert military.citations[0].title == "UCDP Event"
+    assert military.citations[0].url == "https://example.org/ucdp-event"

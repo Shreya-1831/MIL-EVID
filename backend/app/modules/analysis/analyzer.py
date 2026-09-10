@@ -1,9 +1,9 @@
 """Evidence-grounded multi-perspective analysis."""
 
-from __future__ import annotations
-
 import json
 import logging
+import re
+from concurrent.futures import ThreadPoolExecutor
 
 from app.domain.enums import Perspective
 from app.domain.models.analysis import (
@@ -19,40 +19,25 @@ logger = logging.getLogger("mil_evid")
 
 
 class EvidenceAnalyzer:
-    """Generate evidence-grounded analysis for each perspective."""
+    """Generate concise, evidence-grounded analysis for each perspective."""
 
     ANALYSIS_SCHEMA = {
         "type": "object",
         "properties": {
-            "analysis": {
-                "type": "string",
-            },
+            "analysis": {"type": "string"},
             "claims": {
                 "type": "array",
-                "items": {
-                    "type": "string",
-                },
+                "items": {"type": "string"},
             },
         },
         "required": ["analysis", "claims"],
         "additionalProperties": False,
     }
 
-    # Source-to-perspective relevance mapping.
-    #
-    # This does NOT create quotas or change retrieval.
-    # It only tells the analyzer which perspectives a source can
-    # meaningfully support when constructing the LLM evidence view.
     _SOURCE_PERSPECTIVES = {
-        "ICRC Customary IHL": {
-            Perspective.LEGAL,
-        },
-        "ICRC IHL Treaty": {
-            Perspective.LEGAL,
-        },
-        "UN Peacemaker": {
-            Perspective.HISTORICAL,
-        },
+        "ICRC Customary IHL": {Perspective.LEGAL},
+        "ICRC IHL Treaty": {Perspective.LEGAL},
+        "UN Peacemaker": {Perspective.HISTORICAL},
         "UCDP Dyadic": {
             Perspective.MILITARY,
             Perspective.HISTORICAL,
@@ -71,6 +56,11 @@ class EvidenceAnalyzer:
         },
     }
 
+    _MAX_EVIDENCE = 8
+    # _MAX_EVIDENCE = 5
+    _MIN_CLAIMS = 2
+    _MAX_CLAIMS = 4
+
     def __init__(self, llm_client: OllamaClient) -> None:
         self._llm_client = llm_client
 
@@ -83,39 +73,49 @@ class EvidenceAnalyzer:
         PerspectiveAnalysisResult,
         PerspectiveAnalysisResult,
     ]:
-        """Generate military, legal, and historical analyses."""
+        """Generate the three perspective analyses concurrently."""
 
-        military_context = self._build_perspective_context(
-            context=context,
-            perspective=Perspective.MILITARY,
+        perspectives = (
+            Perspective.MILITARY,
+            Perspective.LEGAL,
+            Perspective.HISTORICAL,
         )
 
-        legal_context = self._build_perspective_context(
-            context=context,
-            perspective=Perspective.LEGAL,
-        )
+        contexts = {
+            perspective: self._build_perspective_context(
+                context=context,
+                perspective=perspective,
+            )
+            for perspective in perspectives
+        }
 
-        historical_context = self._build_perspective_context(
-            context=context,
-            perspective=Perspective.HISTORICAL,
-        )
+        def run(
+            perspective: Perspective,
+        ) -> PerspectiveAnalysisResult:
+            return self._analyze_perspective(
+                context=contexts[perspective],
+                perspective=perspective,
+            )
 
-        military = self._analyze_perspective(
-            context=military_context,
-            perspective=Perspective.MILITARY,
-        )
+        with ThreadPoolExecutor(
+            max_workers=2,
+            thread_name_prefix="mil-evid-analysis",
+        ) as executor:
+            futures = {
+                perspective: executor.submit(run, perspective)
+                for perspective in perspectives
+            }
 
-        legal = self._analyze_perspective(
-            context=legal_context,
-            perspective=Perspective.LEGAL,
-        )
+            results = {
+                perspective: futures[perspective].result()
+                for perspective in perspectives
+            }
 
-        historical = self._analyze_perspective(
-            context=historical_context,
-            perspective=Perspective.HISTORICAL,
+        return (
+            results[Perspective.MILITARY],
+            results[Perspective.LEGAL],
+            results[Perspective.HISTORICAL],
         )
-
-        return military, legal, historical
 
     @classmethod
     def _build_perspective_context(
@@ -124,43 +124,21 @@ class EvidenceAnalyzer:
         context: EvidenceContext,
         perspective: Perspective,
     ) -> EvidenceContext:
-        """
-        Build a perspective-specific evidence view.
-
-        Evidence is not re-retrieved or re-scored here. The existing
-        selected evidence is preserved, but evidence relevant to the
-        requested perspective is placed first within the
-        direct/contextual groups.
-
-        This allows each LLM analysis to focus on the most relevant
-        perspective without introducing source-specific quotas.
-        """
+        """Keep only evidence relevant to the requested perspective."""
 
         if not context.evidence:
-            return context
+            return EvidenceContext(
+                query=context.query,
+                evidence=(),
+                direct_evidence_ids=context.direct_evidence_ids,
+                contextual_evidence_ids=context.contextual_evidence_ids,
+            )
 
         direct_ids = set(context.direct_evidence_ids)
-
-        direct_evidence: list[AnalysisEvidence] = []
-        contextual_evidence: list[AnalysisEvidence] = []
-
-        for evidence in context.evidence:
-            if evidence.evidence_id in direct_ids:
-                direct_evidence.append(evidence)
-            else:
-                contextual_evidence.append(evidence)
 
         def matches_perspective(
             evidence: AnalysisEvidence,
         ) -> bool:
-            """
-            Determine whether evidence is relevant to the perspective.
-
-            Explicit evidence perspective takes priority. The source
-            mapping is then used to recognize sources that legitimately
-            support multiple perspectives, such as UCDP.
-            """
-
             if evidence.perspective == perspective:
                 return True
 
@@ -169,68 +147,20 @@ class EvidenceAnalyzer:
                 set(),
             )
 
-        def evidence_priority(
-            evidence: AnalysisEvidence,
-        ) -> tuple[int, float]:
-            """
-            Put perspective-relevant evidence first, then use the
-            existing reranker score to preserve relevance ordering.
-            """
-
-            return (
-                0 if matches_perspective(evidence) else 1,
-                -evidence.reranker_score,
-            )
-
-        direct_evidence.sort(key=evidence_priority)
-        contextual_evidence.sort(key=evidence_priority)
-
-        # Preserve perspective-relevant evidence first while keeping
-        # the existing direct/contextual evidence distinction.
-        #
-        # No source quotas are introduced here.
-        # No retrieval scores are changed.
-        # No new evidence is retrieved.
-        #
-        # The perspective-specific view is intentionally focused so
-        # that a small local LLM does not become dominated by a large
-        # amount of repetitive evidence from an unrelated perspective.
-
-        perspective_direct = [
+        relevant = [
             evidence
-            for evidence in direct_evidence
+            for evidence in context.evidence
             if matches_perspective(evidence)
         ]
 
-        remaining_direct = [
-            evidence
-            for evidence in direct_evidence
-            if not matches_perspective(evidence)
-        ]
-
-        perspective_contextual = [
-            evidence
-            for evidence in contextual_evidence
-            if matches_perspective(evidence)
-        ]
-
-        remaining_contextual = [
-            evidence
-            for evidence in contextual_evidence
-            if not matches_perspective(evidence)
-        ]
-
-        # ordered_evidence = tuple(
-        #     perspective_direct
-        #     + remaining_direct
-        #     + perspective_contextual
-        #     + remaining_contextual
-        # )
-
-        ordered_evidence = tuple(
-            perspective_direct
-            + perspective_contextual
+        relevant.sort(
+            key=lambda evidence: evidence.reranker_score,
+            reverse=True,
         )
+
+        # Keep the LLM evidence view bounded.
+        # Retrieval and reranking are unchanged.
+        relevant = relevant[: cls._MAX_EVIDENCE]
 
         logger.warning(
             "\n========== PERSPECTIVE EVIDENCE DEBUG ==========\n"
@@ -244,15 +174,16 @@ class EvidenceAnalyzer:
                     f"source={evidence.source!r}, "
                     f"perspective={evidence.perspective!r}, "
                     f"reranker={evidence.reranker_score:.4f}, "
+                    f"direct={evidence.evidence_id in direct_ids}, "
                     f"id={evidence.evidence_id}"
                 )
-                for index, evidence in enumerate(ordered_evidence, start=1)
+                for index, evidence in enumerate(relevant, start=1)
             ),
         )
 
         return EvidenceContext(
             query=context.query,
-            evidence=ordered_evidence,
+            evidence=tuple(relevant),
             direct_evidence_ids=context.direct_evidence_ids,
             contextual_evidence_ids=context.contextual_evidence_ids,
         )
@@ -265,6 +196,12 @@ class EvidenceAnalyzer:
     ) -> None:
         """Log a warning when generated analysis appears too generic."""
 
+        if not analysis_text.strip():
+            logger.warning(
+                "Analysis specificity check skipped: empty analysis."
+            )
+            return
+
         is_specific, reason = QuerySpecificityChecker.check_analysis(
             query=query,
             analysis=analysis_text,
@@ -276,17 +213,99 @@ class EvidenceAnalyzer:
                 reason,
             )
 
+    @staticmethod
+    def _fallback_analysis(
+        *,
+        context: EvidenceContext,
+        perspective: Perspective,
+    ) -> tuple[str, tuple[str, ...]]:
+        """
+        Produce a minimal extractive answer when Ollama returns no
+        usable analysis.
+
+        This fallback deliberately does not infer facts. It only reports
+        the supplied evidence and explicitly identifies limitations.
+        """
+
+        evidence = context.evidence
+
+        if not evidence:
+            analysis = (
+                f"No {perspective.value} evidence was retrieved for "
+                "this query. A situation-specific assessment cannot "
+                "be established from the available evidence."
+            )
+            return analysis, ()
+
+        if perspective == Perspective.MILITARY:
+            lead = (
+                "From the military perspective, the retrieved evidence "
+                "documents the following conflict-related records:"
+            )
+        elif perspective == Perspective.LEGAL:
+            lead = (
+                "From the legal perspective, the retrieved evidence "
+                "provides the following international humanitarian law "
+                "material:"
+            )
+        else:
+            lead = (
+                "From the historical perspective, the retrieved evidence "
+                "documents the following historical or conflict records:"
+            )
+
+        statements: list[str] = []
+        claims: list[str] = []
+
+        for evidence_item in evidence[:4]:
+            text = " ".join(evidence_item.text.split()).strip()
+
+            if not text:
+                continue
+
+            statements.append(
+                f"{evidence_item.source} ({evidence_item.evidence_id}) "
+                f"records: {text}"
+            )
+
+            claims.append(text)
+
+        if not statements:
+            return (
+                lead
+                + " However, the retrieved records contain no usable "
+                "text for a grounded assessment."
+            ), ()
+
+        limitation = (
+            "The supplied evidence does not by itself establish facts "
+            "that are absent from these records, and no unsupported "
+            "conclusion is drawn."
+        )
+
+        analysis = (
+            f"{lead}\n"
+            + "\n".join(
+                f"- {statement}"
+                for statement in statements
+            )
+            + f"\n\n{limitation}"
+        )
+
+        return (
+            analysis,
+            EvidenceAnalyzer._clean_claims(tuple(claims)),
+        )
+
     def _analyze_perspective(
         self,
         *,
         context: EvidenceContext,
         perspective: Perspective,
     ) -> PerspectiveAnalysisResult:
-        """Generate analysis and explicitly identified claims."""
+        """Generate analysis and atomic evidence-verifiable claims."""
 
-        system_prompt = self._build_system_prompt(
-            perspective
-        )
+        system_prompt = self._build_system_prompt(perspective)
 
         user_prompt = self._build_user_prompt(
             context=context,
@@ -303,8 +322,41 @@ class EvidenceAnalyzer:
             structured_response
         )
 
-        # Diagnostic validation only.
-        # It does not alter the generated analysis.
+        claims = self._clean_claims(claims)
+
+        if self._is_unsafe_analysis(
+            analysis=analysis_text,
+            perspective=perspective,
+        ):
+            logger.warning(
+                "Rejecting unsupported %s analysis synthesis; "
+                "using evidence-grounded fallback.",
+                perspective.value,
+            )
+
+            analysis_text, fallback_claims = self._fallback_analysis(
+                context=context,
+                perspective=perspective,
+            )
+
+            if fallback_claims:
+                claims = fallback_claims
+
+        if not analysis_text.strip():
+            logger.warning(
+                "Empty %s analysis returned by LLM; "
+                "using evidence-grounded fallback.",
+                perspective.value,
+            )
+
+            analysis_text, fallback_claims = self._fallback_analysis(
+                context=context,
+                perspective=perspective,
+            )
+
+            if not claims:
+                claims = fallback_claims
+
         self._validate_analysis_specificity(
             query=context.query,
             analysis_text=analysis_text,
@@ -338,6 +390,11 @@ class EvidenceAnalyzer:
         response: dict,
     ) -> tuple[str, tuple[str, ...]]:
         """Parse the validated structured analysis response."""
+
+        if not isinstance(response, dict):
+            raise RuntimeError(
+                "Structured analysis response must be a dictionary."
+            )
 
         analysis = response.get("analysis", "")
         raw_claims = response.get("claims", [])
@@ -396,173 +453,242 @@ class EvidenceAnalyzer:
         return response.strip(), ()
 
     @staticmethod
+    def _is_non_atomic_claim(claim: str) -> bool:
+        """Reject claims that aggregate, generalize, or infer across events."""
+
+        normalized = " ".join(
+            claim.lower().strip().split()
+        )
+
+        forbidden_patterns = (
+            r"\branging from\b",
+            r"\bbetween\s+\d+.*\band\s+\d+",
+            r"\bvarious incidents\b",
+            r"\bseveral incidents\b",
+            r"\bacross multiple\b",
+            r"\bacross several\b",
+            r"\bin total\b",
+            r"\boverall\b",
+            r"\bcollectively\b",
+            r"\brespectively\b",
+            r"\bacross the conflict\b",
+            r"\bthroughout the conflict\b",
+            r"\bthe conflict has\b",
+            r"\bthe conflict was\b",
+            r"\bthe conflict involved\b",
+            r"\bthe conflict occurred\b",
+            r"\bthe conflict took place\b",
+            r"\bthe conflict started\b",
+            r"\bthe conflict began\b",
+            r"\bthe conflict ended\b",
+            r"\bthe conflict escalated\b",
+            r"\bthe conflict de-escalated\b",
+            r"\bthe conflict intensified\b",
+            r"\bescalated over time\b",
+            r"\bdeclined over time\b",
+            r"\bincreased over time\b",
+            r"\bdecreased over time\b",
+            r"\bconsistently reported\b",
+            r"\bremained consistent\b",
+            r"\bremained unchanged\b",
+            r"\bover the years\b",
+            r"\bfrom \d{4} to \d{4}\b",
+        )
+
+        return any(
+            re.search(pattern, normalized)
+            for pattern in forbidden_patterns
+        )
+
+    @classmethod
+    def _is_unsafe_analysis(
+        cls,
+        analysis: str,
+        perspective: Perspective,
+    ) -> bool:
+        """Detect unsupported conflict-wide synthesis."""
+
+        text = " ".join(analysis.lower().split())
+
+        patterns = (
+            r"\bthe conflict started\b",
+            r"\bthe conflict began\b",
+            r"\bthe conflict escalated\b",
+            r"\bthe conflict intensified\b",
+            r"\bthe conflict has been ongoing since\b",
+            r"\bescalated over time\b",
+            r"\bintensified over time\b",
+        )
+
+        if perspective in (
+            Perspective.MILITARY,
+            Perspective.HISTORICAL,
+        ):
+            return any(re.search(pattern, text) for pattern in patterns)
+
+        return False
+    @classmethod
+    def _clean_claims(
+        cls,
+        claims: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        """Keep only concise, atomic, non-duplicated claims."""
+
+        cleaned: list[str] = []
+        seen: set[str] = set()
+
+        for claim in claims:
+            normalized_claim = " ".join(
+                str(claim).strip().split()
+            )
+
+            if not normalized_claim:
+                continue
+
+            if cls._is_non_atomic_claim(normalized_claim):
+                logger.warning(
+                    "Rejecting non-atomic generated claim: %r",
+                    normalized_claim,
+                )
+                continue
+
+            key = normalized_claim.casefold()
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            cleaned.append(normalized_claim)
+
+            if len(cleaned) >= 4:
+                break
+
+        return tuple(cleaned)
+
+    @staticmethod
     def _build_system_prompt(
         perspective: Perspective,
     ) -> str:
-        """Build a perspective-specific system prompt."""
+        """Build a strict perspective-specific grounding prompt."""
 
         perspective_instructions = {
             Perspective.MILITARY: (
-                "Analyze only the military and operational aspects "
-                "supported by the PRIMARY EVIDENCE. Focus on actors, "
-                "documented attacks and conflict events, military "
-                "developments, conflict dynamics, operational "
-                "implications, and escalation risks explicitly "
-                "supported by that evidence. When the query identifies "
-                "specific countries or actors, keep the military "
-                "analysis explicitly grounded in those entities. "
-                "Do not infer specific military actions, capabilities, "
-                "intentions, deployments, or events unless supported "
-                "by the supplied evidence. Do not turn the military "
-                "analysis into a generic discussion of international "
-                "humanitarian law."
+                "You are producing ONLY the MILITARY section. "
+                "Discuss documented military events, actors, "
+                "locations, attacks, fatalities, conflict intensity, "
+                "military developments, and evidence-supported "
+                "escalation indicators. "
+                "Treat every factual statement in the USER QUERY as an "
+                "issue to assess, not as evidence that the event actually "
+                "occurred. "
+                "If the supplied evidence does not explicitly document "
+                "attacks on civilian areas, damage to essential "
+                "infrastructure, civilian protection incidents, or "
+                "responsibility for a specific attack, say that the "
+                "evidence does not establish that point. "
+                "Do not infer escalation merely by combining separate "
+                "events or records from different dates. "
+                "Do not write a legal section or historical section."
             ),
             Perspective.LEGAL: (
-                "Analyze the international humanitarian law and legal "
-                "aspects supported by the PRIMARY EVIDENCE. Focus only "
-                "on legal conclusions explicitly supported by that "
-                "evidence, including distinction, civilian protection, "
-                "proportionality, precautions, and the legal assessment "
-                "of attacks where supported. When the query identifies "
-                "specific countries, actors, or events, explicitly "
-                "distinguish the queried situation from general legal "
-                "principles. Do not treat agreements, legal provisions, "
-                "or rules from a different country pair or conflict "
-                "as applicable to the queried situation unless the "
-                "PRIMARY EVIDENCE explicitly establishes that "
-                "applicability."
+                "You are producing ONLY the LEGAL section. "
+                "Discuss international humanitarian law, distinction, "
+                "proportionality, precautions, civilian protection, "
+                "and the limits of the supplied legal evidence. "
+                "Do not write a military section or historical section."
             ),
             Perspective.HISTORICAL: (
-                "Analyze only the historical context, background, "
-                "precedents, chronology, and developments contained "
-                "in the PRIMARY EVIDENCE. Prioritize documented "
-                "historical events, conflict patterns, and developments "
-                "involving the countries or actors identified in the "
-                "query. Do not replace the requested historical "
-                "assessment with a generic international humanitarian "
-                "law explanation. Historical evidence from another "
-                "country pair or conflict may be discussed only as "
-                "contextual comparison. Do not introduce historical "
-                "events from general knowledge. Do not claim that a "
-                "historical agreement, mechanism, principle, or "
-                "precedent applies to the queried situation unless "
-                "the PRIMARY EVIDENCE explicitly establishes that "
-                "connection."
+                "You are producing ONLY the HISTORICAL section. "
+                "Discuss chronology, documented historical events, "
+                "conflict records, patterns, and changes over time "
+                "that appear in the supplied evidence. "
+                "Treat each retrieved record as a separate record unless "
+                "the evidence itself explicitly establishes that the records "
+                "describe the same event or a temporal sequence. "
+                "Do not infer the beginning, end, or duration of a conflict "
+                "merely from the earliest or latest year appearing in the "
+                "retrieved records. "
+                "An earliest retrieved event is not necessarily the conflict "
+                "start date. Only state that a conflict started in a particular "
+                "year if a supplied evidence record explicitly states that. "
+                "Do not infer escalation, continuity, consistency, or trends "
+                "merely by comparing separate retrieved records. "
+                "Only state that a conflict escalated over time if the supplied "
+                "evidence explicitly documents such an escalation or provides "
+                "a clearly established temporal comparison. "
+                "Do not write a military section or legal section."
             ),
         }
 
         return (
-            "You are an evidence-grounded military situation analyst.\n\n"
+            "You are MIL-EVID, an evidence-grounded military situation "
+            "analysis system.\n\n"
+            f"CURRENT PERSPECTIVE: {perspective.value}\n"
             f"{perspective_instructions[perspective]}\n\n"
-
-            "QUERY-SPECIFIC ANALYSIS REQUIREMENT:\n"
-            "Answer the user's actual query rather than merely "
-            "summarizing the supplied evidence.\n"
-            "If the query names specific countries, actors, locations, "
-            "or events, explicitly refer to those entities in the "
-            "analysis when they are relevant and supported by the "
-            "evidence.\n"
-            "Do not replace named entities with generic phrases such "
-            "as 'the parties', 'the states', 'the conflict', or "
-            "'the region' when doing so would make the analysis less "
-            "specific.\n"
-            "Keep the analysis focused on the requested perspective.\n\n"
-
-            "CRITICAL GROUNDING REQUIREMENTS:\n"
-            "1. Use ONLY the supplied evidence as factual support.\n"
-            "2. PRIMARY EVIDENCE is the only evidence that may support "
-            "situation-specific factual, legal, military, or historical "
-            "claims.\n"
-            "3. CONTEXTUAL EVIDENCE may ONLY be used for general "
-            "background or clearly labeled comparison.\n"
-            "4. Never use CONTEXTUAL EVIDENCE to establish that an "
-            "event, agreement, legal provision, obligation, actor, "
-            "military action, date, or outcome applies to the query.\n"
-            "5. Never transfer facts or conclusions between different "
-            "country pairs, conflicts, borders, locations, or "
-            "historical events.\n"
-            "6. Do not use general world knowledge to fill gaps in the "
-            "supplied evidence.\n"
-            "7. Do not introduce historical events, agreements, legal "
-            "articles, military facts, actors, dates, or recommendations "
-            "that are not supported by the supplied evidence.\n"
-            "8. If the query describes a hypothetical or assumed "
-            "situation, do not present those assumptions as independently "
-            "verified facts unless the evidence confirms them.\n"
-            "9. If PRIMARY EVIDENCE is insufficient, explicitly state "
-            "that the evidence is insufficient.\n"
-            "10. Distinguish evidence-supported facts from interpretation "
-            "and clearly identify contextual comparisons.\n"
-            "11. Do not present a contextual comparison as a legal rule, "
-            "military fact, historical fact, or established "
-            "applicability.\n"
-            "12. Keep the analysis concise, factual, and "
-            "evidence-grounded.\n\n"
-
-            "CLAIM IDENTIFICATION:\n"
-            "Generate ONLY 2 to 4 atomic factual claims.\n\n"
-
-            "Each claim must describe ONE specific fact from ONE "
-            "DIRECT EVIDENCE record.\n\n"
-
-            "CLAIM RULES:\n"
-            "1. Every claim must be directly verifiable from a single "
-            "DIRECT EVIDENCE record whenever possible.\n"
-            "2. Copy factual values EXACTLY from the evidence.\n"
-            "3. Copy dates EXACTLY as written in the evidence.\n"
-            "4. Never convert a date into a time such as 00:00.0.\n"
-            "5. Copy locations, actor names, fatality counts, targets, "
-            "and event descriptions exactly from the evidence.\n"
-            "6. Do not calculate numbers.\n"
-            "7. Do not aggregate numbers from multiple events.\n"
-            "8. Do not combine facts from different evidence records "
-            "into one claim.\n"
-            "9. Do not generalize one event into a statement about the "
-            "entire conflict.\n"
-            "10. Do not infer facts that are not explicitly stated.\n"
-            "11. Do not use general world knowledge.\n\n"
-
-            "GOOD CLAIMS:\n"
-            "- The event occurred in Kharkiv, Ukraine.\n"
-            "- The event resulted in 3 reported fatalities.\n"
-            "- The event involved the Government of Russia "
-            "(Soviet Union).\n"
-            "- The event involved the Government of Ukraine.\n"
-            "- The event targeted residential buildings.\n\n"
-
-            "BAD CLAIMS:\n"
-            "- The Russia-Ukraine conflict has escalated significantly.\n"
-            "- Fatalities ranged from 1 to 8.\n"
-            "- The attacks demonstrate increasing risks to civilians.\n"
-            "- The conflict caused significant damage across Ukraine.\n"
-            "- The attacks were intended to target civilians.\n"
-            "- Further investigation is needed.\n\n"
-
-            "Do NOT create:\n"
-            "- broad conflict summaries\n"
-            "- recommendations\n"
-            "- opinions\n"
-            "- interpretations\n"
-            "- legal conclusions\n"
-            "- causal claims\n"
-            "- motivation or intention claims\n"
-            "- claims requiring calculations\n"
-            "- claims requiring aggregation across events\n"
-            "- generic statements about civilian protection\n\n"
-
-            "If the DIRECT EVIDENCE does not contain enough concrete "
-            "facts for 2 claims, generate fewer claims rather than "
-            "inventing or generalizing information.\n\n"
-
-            "Every claim must be independently checkable by locating "
-            "the same fact directly in a DIRECT EVIDENCE record.\n"
-            "Do not create claims from general world knowledge.\n\n"
-
-            "Return ONLY valid JSON in this exact structure:\n"
-            "{\n"
-            '  "analysis": "concise evidence-grounded analysis",\n'
-            '  "claims": ["claim 1", "claim 2"]\n'
-            "}"
+            "HARD SCOPE RULES:\n"
+            "1. Answer ONLY the current perspective.\n"
+            "2. Do not answer the complete multi-perspective query.\n"
+            "3. Do not create sections for other perspectives.\n"
+            "4. Do not write phrases such as 'from a military "
+            "perspective', 'from a legal perspective', or 'from a "
+            "historical perspective' unless they refer to the current "
+            "perspective.\n"
+            "5. Do not repeat the user's entire question.\n"
+            "6. If the evidence is insufficient, say exactly what "
+            "cannot be established.\n\n"
+            "GROUNDING RULES:\n"
+            "1. Use only the supplied evidence for factual claims.\n"
+            "2. Do not use outside knowledge.\n"
+            "3. Do not invent facts, dates, locations, actors, "
+            "fatalities, attacks, intentions, or causes.\n"
+            "4. Do not present unsupported assumptions as facts.\n"
+            "5. Do not treat assumptions in the query as verified facts.\n"
+            "6. Distinguish documented facts from analytical "
+            "interpretation.\n"
+            "7. Never transfer facts from another conflict, location, "
+            "actor pair, or historical period.\n"
+            "8. Never transfer facts from a different country pair or "
+            "different conflict into the queried situation.\n"
+            "9. Never transfer facts from a different historical event "
+            "or time period.\n\n"
+            "PERSPECTIVE RULES:\n"
+            "- Military: do not infer military intentions, "
+            "capabilities, deployments, tactics, or causes of "
+            "escalation unless explicitly supported.\n"
+            "- Legal: explain legal rules when supported, but do not "
+            "conclude that a particular attack was unlawful unless "
+            "the supplied evidence contains sufficient event-specific "
+            "facts for that conclusion.\n"
+            "- Historical: do not introduce historical background "
+            "from general knowledge. Do not mention Crimea 2014, "
+            "Minsk, NATO, previous invasions, or other background "
+            "unless present in the supplied evidence.\n\n"
+            "CLAIMS:\n"
+            f"Generate up to {EvidenceAnalyzer._MAX_CLAIMS} atomic claims "
+            "when possible.\n"
+            "Each claim must contain exactly one independently "
+            "verifiable fact from one supplied evidence record.\n"
+            "Each generated claim must be traceable to one supplied "
+            "evidence record.\n"
+            "Copy factual values exactly.\n"
+            "Never aggregate multiple events.\n"
+            "Never calculate ranges or totals.\n"
+            "Never create broad claims about the entire conflict from "
+            "one event.\n"
+            "If there are not enough directly supported facts, generate "
+            "fewer claims.\n\n"
+            "IMPORTANT DATE RULE:\n"
+            "If an evidence record contains a date, preserve the date "
+            "exactly as written.\n"
+            "Preserve the date exactly as written.\n"
+            "Never convert dates or timestamps into times.\n"
+            "If the date is unclear or malformed, do not invent or "
+            "normalize it and do not include it in a claim.\n"
+            "Do not modify dates.\n\n"
+            "OUTPUT:\n"
+            "Return ONLY valid JSON matching the supplied schema.\n"
+            "The 'analysis' field must contain a non-empty answer "
+            "when usable evidence is supplied."
         )
 
     @classmethod
@@ -572,190 +698,130 @@ class EvidenceAnalyzer:
         context: EvidenceContext,
         perspective: Perspective,
     ) -> str:
-        """Format the query and separate direct/contextual evidence."""
+        """Format a compact query-specific evidence prompt."""
 
         direct_ids = set(context.direct_evidence_ids)
-        contextual_ids = set(context.contextual_evidence_ids)
 
-        direct_sections: list[str] = []
-        contextual_sections: list[str] = []
+        evidence_sections: list[str] = []
 
-        direct_index = 1
-        contextual_index = 1
+        for index, evidence in enumerate(context.evidence, start=1):
+            is_direct = evidence.evidence_id in direct_ids
 
-        def perspective_relevance(
-            evidence: AnalysisEvidence,
-        ) -> str:
-            """
-            Label evidence according to its relevance to the current
-            analysis perspective.
-            """
-
-            if evidence.perspective == perspective:
-                return "PRIMARY"
-
-            if perspective in cls._SOURCE_PERSPECTIVES.get(
-                evidence.source,
-                set(),
-            ):
-                return "PRIMARY"
-
-            return "SUPPORTING"
-
-        for evidence in context.evidence:
-            relevance = perspective_relevance(evidence)
-
-            if evidence.evidence_id in direct_ids:
-                direct_sections.append(
-                    "\n".join(
-                        [
-                            f"[Direct Evidence {direct_index}]",
-                            "Type: DIRECT EVIDENCE",
-                            f"Perspective relevance: {relevance}",
-                            f"ID: {evidence.evidence_id}",
-                            f"Source: {evidence.source}",
-                            f"Title: {evidence.title}",
-                            f"Text: {evidence.text}",
-                        ]
+            relevance = (
+                "PRIMARY"
+                if (
+                    evidence.perspective == perspective
+                    or perspective
+                    in cls._SOURCE_PERSPECTIVES.get(
+                        evidence.source,
+                        set(),
                     )
                 )
+                else "SUPPORTING"
+            )
 
-                direct_index += 1
-
-            elif evidence.evidence_id in contextual_ids:
-                contextual_sections.append(
-                    "\n".join(
-                        [
-                            f"[Contextual Evidence {contextual_index}]",
-                            "Type: CONTEXTUAL EVIDENCE",
-                            f"Perspective relevance: {relevance}",
-                            f"ID: {evidence.evidence_id}",
-                            f"Source: {evidence.source}",
-                            f"Title: {evidence.title}",
-                            f"Text: {evidence.text}",
-                        ]
-                    )
+            evidence_sections.append(
+                "\n".join(
+                    [
+                        f"[Evidence {index}]",
+                        f"Type: {'DIRECT' if is_direct else 'CONTEXTUAL'}",
+                        f"Perspective: {relevance}",
+                        f"ID: {evidence.evidence_id}",
+                        f"Source: {evidence.source}",
+                        f"Title: {evidence.title}",
+                        f"Reranker score: "
+                        f"{evidence.reranker_score:.4f}",
+                        f"Text: {evidence.text}",
+                    ]
                 )
+            )
 
-                contextual_index += 1
-
-            else:
-                contextual_sections.append(
-                    "\n".join(
-                        [
-                            f"[Contextual Evidence {contextual_index}]",
-                            "Type: CONTEXTUAL EVIDENCE",
-                            f"Perspective relevance: {relevance}",
-                            f"ID: {evidence.evidence_id}",
-                            f"Source: {evidence.source}",
-                            f"Title: {evidence.title}",
-                            f"Text: {evidence.text}",
-                        ]
-                    )
-                )
-
-                contextual_index += 1
-
-        direct_text = (
-            "\n\n".join(direct_sections)
-            if direct_sections
-            else "No direct evidence was identified."
+        evidence_text = (
+            "\n\n".join(evidence_sections)
+            if evidence_sections
+            else "No evidence was retrieved."
         )
 
-        contextual_text = (
-            "\n\n".join(contextual_sections)
-            if contextual_sections
-            else "No contextual evidence was identified."
-        )
+        if perspective == Perspective.MILITARY:
+            task = (
+                "Assess only the military dimension. Identify "
+                "documented conflict events, actors, locations, "
+                "fatalities, intensity, military developments, and "
+                "evidence-supported escalation indicators."
+            )
+        elif perspective == Perspective.LEGAL:
+            task = (
+                "Assess only the legal dimension. Explain the "
+                "applicable IHL principles and what the supplied "
+                "evidence does or does not establish about civilian "
+                "protection, distinction, proportionality, and "
+                "precautions."
+            )
+        else:
+            task = (
+                "Assess only the historical dimension. Describe the "
+                "chronology, historical records, conflict patterns, "
+                "and changes over time that are explicitly present "
+                "in the supplied evidence."
+            )
 
         return (
-            "USER QUERY — THIS IS THE QUESTION YOU MUST ANSWER:\n"
+            "USER QUERY:\n"
             f"{context.query}\n\n"
-
-            "CURRENT ANALYSIS PERSPECTIVE:\n"
+            "ANALYSIS PERSPECTIVE:\n"
             f"{perspective.value}\n\n"
-
-            "QUERY-SPECIFICITY REQUIREMENT:\n"
-            "Answer the USER QUERY directly from the CURRENT ANALYSIS "
-            "PERSPECTIVE.\n"
-            "Explicitly address named countries, actors, locations, "
-            "events, and issues from the query whenever the supplied "
-            "evidence supports doing so.\n"
-            "Do not produce a generic conflict explanation that could "
-            "apply equally to unrelated conflicts.\n\n"
-
-            "DIRECT EVIDENCE:\n"
-            "The following evidence has been classified as directly "
-            "relevant to the queried situation. Use this evidence for "
-            "situation-specific claims.\n\n"
-            f"{direct_text}\n\n"
-
-            "CONTEXTUAL EVIDENCE:\n"
-            "The following evidence is contextual only. It may be used "
-            "for general background or historical comparison.\n\n"
-            f"{contextual_text}\n\n"
-
-            "ANALYSIS TASK:\n"
-            f"Produce a concise {perspective.value} analysis that "
-            "directly answers the USER QUERY.\n"
-            "Keep the military, legal, and historical perspectives "
-            "distinct.\n"
-            "For the military perspective, focus on military and "
-            "operational dynamics rather than providing a generic "
-            "legal explanation.\n"
-            "For the legal perspective, focus on legal standards, "
-            "civilian protection, and legal assessment rather than "
-            "providing a generic historical summary.\n"
-            "For the historical perspective, focus on chronology, "
-            "precedents, conflict patterns, and historical developments "
-            "rather than providing a generic legal explanation.\n\n"
-
-            "FINAL EVIDENCE-USE RULES:\n"
-            "1. Treat DIRECT EVIDENCE as evidence specifically relevant "
+            "TASK:\n"
+            f"{task}\n\n"
+            "IMPORTANT:\n"
+            "Answer only this perspective. Do not produce military, "
+            "legal, and historical sections inside one response.\n"
+            "Use only the evidence supplied below.\n"
+            "Do not use outside knowledge.\n"
+            "Do not present unsupported assumptions as facts.\n"
+            "Do not assume that statements in the query are verified "
+            "facts.\n"
+            "If the evidence cannot establish something requested by "
+            "the user, explicitly state the limitation.\n\n"
+            "LEGAL SAFETY RULE:\n"
+            "A legal principle can be explained when supported by the "
+            "ICRC evidence, but do not conclude that a particular "
+            "attack was unlawful unless the supplied evidence contains "
+            "sufficient facts for that conclusion.\n"
+            "A legal principle and an attack being unlawful are "
+            "different claims.\n\n"
+            "HISTORICAL SAFETY RULE:\n"
+            "Do not introduce historical background from general "
+            "knowledge. For example, do not introduce Crimea 2014, "
+            "Minsk, NATO, previous invasions, or other historical "
+            "events unless they appear in the supplied evidence.\n\n"
+            "MILITARY SAFETY RULE:\n"
+            "Do not infer military intentions, capabilities, tactics, "
+            "deployments, or escalation causes unless supported by the "
+            "supplied evidence.\n\n"
+            "CROSS-CONFLICT RULE:\n"
+            "Do not transfer facts from a different country pair, "
+            "different conflict, location, actor pair, historical "
+            "event, or time period into the queried situation.\n"
+            "Do not transfer facts from another conflict into the "
+            "queried situation.\n"
+            "A contextual source may explain general background, but "
+            "must not be treated as proof that an event or fact applies "
             "to the queried situation.\n"
-            "2. Base situation-specific conclusions ONLY on DIRECT "
-            "EVIDENCE.\n"
-            "3. Treat CONTEXTUAL EVIDENCE only as general background, "
-            "historical comparison, or explanation of broader concepts.\n"
-            "4. Contextual evidence MUST NOT be used as proof that an "
-            "event, actor, agreement, date, obligation, legal rule, "
-            "or outcome occurred or applies in the queried situation.\n"
-            "5. Do not transfer facts, actors, dates, agreements, "
-            "events, military actions, legal obligations, or conclusions "
-            "from a different country pair, conflict, border, location, "
-            "or historical event to the query.\n"
-            "6. If contextual evidence concerns a different country pair "
-            "or conflict, explicitly identify that difference.\n"
-            "7. Do NOT state or imply that a contextual agreement, rule, "
-            "or mechanism applies to the queried situation unless the "
-            "provided DIRECT EVIDENCE explicitly establishes that "
-            "applicability.\n"
-            "8. Do not use general world knowledge to fill missing "
-            "information.\n"
-            "9. Do not introduce historical events, agreements, legal "
-            "articles, military facts, actors, dates, or recommendations "
-            "that are not supported by the supplied evidence.\n"
-            "10. Do not treat assumptions in the query as independently "
-            "verified events unless the evidence confirms them.\n"
-            "11. If DIRECT EVIDENCE is insufficient, explicitly state "
-            "that the evidence is insufficient.\n"
-            "12. Clearly distinguish evidence-supported facts from "
-            "interpretation or comparison.\n"
-            "13. Generate only 2 to 4 atomic factual claims.\n"
-            "14. Each claim should correspond to ONE DIRECT EVIDENCE "
-            "record and ONE specific fact.\n"
-            "15. Copy dates, locations, actors, fatality counts, "
-            "targets, and event descriptions exactly from the evidence.\n"
-            "16. Do not calculate, aggregate, reinterpret, or generalize "
+            "Different country pairs and conflicts must remain "
+            "explicitly separated.\n\n"
+            "CLAIM RULE:\n"
+            "Each generated claim must be traceable to one supplied "
+            "evidence record.\n"
+            "Every claim must contain exactly one independently "
+            "verifiable fact.\n"
+            "Do not create a claim merely because it sounds plausible.\n"
+            "Copy dates, locations, actors, fatality counts, and event "
+            "descriptions exactly as supported by the evidence.\n"
+            "Do not calculate, aggregate, reinterpret, or generalize "
             "facts across evidence records.\n"
-            "17. Do not modify dates or convert dates into times.\n"
-            "18. Do not generate recommendations, opinions, generic "
-            "statements, legal conclusions, motivations, intentions, "
-            "or unsupported causal claims.\n"
-            "19. If insufficient evidence exists, generate fewer claims "
-            "rather than inventing claims.\n"
-            "20. Every generated claim must be independently checkable "
-            "against one DIRECT EVIDENCE record.\n\n"
-
-            "Return the requested JSON structure only."
+            "If a date or timestamp is malformed, do not reproduce it "
+            "as a time and do not invent a replacement.\n\n"
+            "EVIDENCE:\n"
+            f"{evidence_text}\n\n"
+            "Return ONLY the requested JSON object."
         )

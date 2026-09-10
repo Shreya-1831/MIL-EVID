@@ -28,11 +28,15 @@ def make_evidence(
 
 def test_supported_claim() -> None:
     llm = Mock()
-
     llm.generate_structured.return_value = {
-        "supporting_evidence_ids": ["e1"],
-        "support_score": 0.95,
-        "status": "SUPPORTED",
+        "results": [
+            {
+                "claim_index": 1,
+                "supporting_evidence_ids": ["e1"],
+                "support_score": 0.95,
+                "status": "SUPPORTED",
+            }
+        ]
     }
 
     verifier = ClaimVerifier(llm)
@@ -61,11 +65,15 @@ def test_supported_claim() -> None:
 
 def test_partially_supported_claim() -> None:
     llm = Mock()
-
     llm.generate_structured.return_value = {
-        "supporting_evidence_ids": ["e1"],
-        "support_score": 0.55,
-        "status": "PARTIALLY_SUPPORTED",
+        "results": [
+            {
+                "claim_index": 1,
+                "supporting_evidence_ids": ["e1"],
+                "support_score": 0.55,
+                "status": "PARTIALLY_SUPPORTED",
+            }
+        ]
     }
 
     verifier = ClaimVerifier(llm)
@@ -95,11 +103,15 @@ def test_partially_supported_claim() -> None:
 
 def test_unsupported_claim() -> None:
     llm = Mock()
-
     llm.generate_structured.return_value = {
-        "supporting_evidence_ids": [],
-        "support_score": 0.05,
-        "status": "UNSUPPORTED",
+        "results": [
+            {
+                "claim_index": 1,
+                "supporting_evidence_ids": [],
+                "support_score": 0.05,
+                "status": "UNSUPPORTED",
+            }
+        ]
     }
 
     verifier = ClaimVerifier(llm)
@@ -125,7 +137,6 @@ def test_unsupported_claim() -> None:
 def test_invalid_llm_response_is_unsupported() -> None:
     llm = Mock()
 
-    # Simulate structured-output failure.
     llm.generate_structured.side_effect = RuntimeError(
         "Invalid structured response"
     )
@@ -179,12 +190,6 @@ def test_empty_claim_is_unsupported() -> None:
 def test_empty_evidence_produces_unsupported_claim() -> None:
     llm = Mock()
 
-    llm.generate_structured.return_value = {
-        "supporting_evidence_ids": [],
-        "support_score": 0.0,
-        "status": "UNSUPPORTED",
-    }
-
     verifier = ClaimVerifier(llm)
 
     result = verifier.verify(
@@ -197,17 +202,24 @@ def test_empty_evidence_produces_unsupported_claim() -> None:
     assert result[0].status == ClaimVerificationStatus.UNSUPPORTED
     assert result[0].verified is False
 
+    llm.generate_structured.assert_not_called()
+
 
 def test_unknown_evidence_ids_are_removed() -> None:
     llm = Mock()
 
     llm.generate_structured.return_value = {
-        "supporting_evidence_ids": [
-            "e1",
-            "fake-id",
-        ],
-        "support_score": 0.9,
-        "status": "SUPPORTED",
+        "results": [
+            {
+                "claim_index": 1,
+                "supporting_evidence_ids": [
+                    "e1",
+                    "fake-id",
+                ],
+                "support_score": 0.9,
+                "status": "SUPPORTED",
+            }
+        ]
     }
 
     verifier = ClaimVerifier(llm)
