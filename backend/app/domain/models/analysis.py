@@ -78,12 +78,11 @@ class Citation(BaseModel):
 
 
 class PerspectiveAnalysisResult(BaseModel):
-    """Output of a single PerspectiveAnalyzer."""
-
     model_config = ConfigDict(frozen=True)
 
     perspective: Perspective
     analysis_text: str
+    claims: tuple[str, ...] = Field(default_factory=tuple)
     evidence_ids: tuple[str, ...] = Field(default_factory=tuple)
     citations: tuple[Citation, ...] = Field(default_factory=tuple)
 

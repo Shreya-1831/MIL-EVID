@@ -1,0 +1,334 @@
+================================================================================   
+MIL-EVID — FULL ANALYSIS PIPELINE
+================================================================================
+
+Enter your military situation query:
+> How should the escalation of the Russia–Ukraine conflict be assessed from military, legal, and historical perspectives, particularly regarding attacks on civilian areas, damage to essential infrastructure, civilian protection, and competing claims about responsibility?
+
+[1/4] Loading retrieval indexes...
+[2/4] Loading cross-encoder reranker...
+[3/4] Initializing evidence context and Llama 3.2 3B...
+[4/4] Running analysis...
+
+Retrieving and reranking evidence...
+2026-09-10 14:15:49 [info     ] embedding_model_loading        model_name=sentence-transformers/all-MiniLM-L6-v2
+
+========== POST-RERANK EVIDENCE DEBUG ==========
+Input evidence count: 30
+Selected evidence count: 20
+1. source='UCDP GED', score=1.0391, id=ucdp-ged-433534::chunk-0000
+2. source='UCDP GED', score=0.9662, id=ucdp-ged-447526::chunk-0000
+3. source='UCDP GED', score=0.9263, id=ucdp-ged-432804::chunk-0000
+4. source='UCDP GED', score=0.4286, id=ucdp-ged-448444::chunk-0000
+5. source='UCDP GED', score=0.2721, id=ucdp-ged-444910::chunk-0000
+6. source='UCDP GED', score=0.1071, id=ucdp-ged-441275::chunk-0000
+7. source='UCDP Dyadic', score=0.0081, id=ucdp-dyadic-14117-2025::chunk-0000
+8. source='UCDP GED', score=-0.0421, id=ucdp-ged-430195::chunk-0000
+9. source='UCDP GED', score=-0.1062, id=ucdp-ged-456471::chunk-0000
+10. source='ICRC Customary IHL', score=-1.5961, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0125
+11. source='UCDP Dyadic', score=-2.7102, id=ucdp-dyadic-15101-2017::chunk-0000
+12. source='ICRC Customary IHL', score=-3.3021, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127
+13. source='ICRC IHL Treaty', score=-3.7316, id=icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0119
+14. source='ICRC Customary IHL', score=-4.3338, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0028
+15. source='ICRC Customary IHL', score=-4.3444, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0334
+16. source='ICRC Customary IHL', score=-4.5581, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0032
+17. source='ICRC Customary IHL', score=-5.1065, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0033
+18. source='ICRC Customary IHL', score=-5.3222, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0144
+19. source='ICRC Customary IHL', score=-5.4336, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Rules.pdf::chunk-0007
+20. source='ICRC Customary IHL', score=-5.9826, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0333
+===============================================
+
+
+========== SELECTED EVIDENCE TEXT DEBUG ==========
+
+1. source='UCDP GED'
+score=1.0391
+id=ucdp-ged-433534::chunk-0000
+text=Conflict: Government of Russia (Soviet Union) - Civilians. The event involved Government of Russia (Soviet Union) and Civilians. The event occurred in in the village of Veliky Sambir, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 2. Source record: "Ukrinform: news,2022-03-25,Armed Forces of Ukraine are fighting for the liberation of Trostyanets";"Office of the United Nations High Commissioner for Human Rights,2022-12-07,KILLINGS OF CIVILIANS: SUMMARY EXECUTIONS AND ATTACKS ...
+
+2. source='UCDP GED'
+score=0.9662
+id=ucdp-ged-447526::chunk-0000
+text=Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Donetsk region: Dolyna, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 2. Source record: "Ukrinform,2022-09-15,The enemy continues to hit the civilian infrastructure of Ukraine, in the Kherson region - active hostilities";"AOAV,2022-09-26,Ukraine: AOAV explosive violence data on harm to civilians"
+
+3. source='UCDP GED'
+score=0.9263
+id=ucdp-ged-432804::chunk-0000
+text=Conflict: Government of Russia (Soviet Union) - Civilians. The event involved Government of Russia (Soviet Union) and Civilians. The event occurred in in the village of Velikaya Dymerka, Brovarsky district, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 2. Source record: "Ukrinform: news,2022-03-15,In the Kiev region, law enforcement officers are investigating the shelling of public transport stops and civilians in the Russian Federation - prosecutor's office";"Office of the...
+
+4. source='UCDP GED'
+score=0.4286
+id=ucdp-ged-448444::chunk-0000
+text=Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Not far from the village of Grakovo, Chuguevsky district, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 1. Source record: "AOAV,2022-09-26,Ukraine: AOAV explosive violence data on harm to civilians";"Ukrinform,2022-09-22,OVA summary: under shelling - seven regions, aircraft of the Armed Forces of Ukraine inflicted dozens of strikes on enemy tar...
+
+5. source='UCDP GED'
+score=0.2721
+id=ucdp-ged-444910::chunk-0000
+text=Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Konstantinovka, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 1. Source record: "Ukrinform,2022-08-16,За прошедшие сутки на Донетчине россияне убили одного гражданского, еще двух ранили";"AOAV,2022-09-14,Ukraine: AOAV explosive violence data on harm to civilians"
+
+6. source='UCDP GED'
+score=0.1071
+id=ucdp-ged-441275::chunk-0000
+text=Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in the cities of Donetsk, Makiivka and Komsomolskoye, as well as the settlements of the towns of Panteleimonovka, Bessarabka, Stepnoe and Mironovsky, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 2. Source record: "ITAR-TASS,2022-06-19,Investigative Committee of the Russian Federation opened cases on the facts of the use of prohibited means and me...
+
+7. source='UCDP Dyadic'
+score=0.0081
+id=ucdp-dyadic-14117-2025::chunk-0000
+text=The conflict involved Government of Russia (Soviet Union) and Government of Ukraine. The conflict was located in Russia (Soviet Union), Ukraine. The conflict record applies to the year 2025. The recorded conflict intensity level was 2. The recorded conflict type was 2. The recorded incompatibility category was 3.
+
+8. source='UCDP GED'
+score=-0.0421
+id=ucdp-ged-430195::chunk-0000
+text=Conflict: Government of Russia (Soviet Union) - Civilians. The event involved Government of Russia (Soviet Union) and Civilians. The event occurred in Kiev, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 3. Source record: "Ukrinform: news,2022-02-27,Verkhovna Rada Appeals to the UN General Assembly with a Proposal to Create a Tribunal to Investigate the Crimes of the Putin Regime";"Ukrinform: news,2022-03-01,Vereshchuk called on the Red Cross to make humanitarian corridors i...
+
+9. source='UCDP GED'
+score=-0.1062
+id=ucdp-ged-456471::chunk-0000
+text=Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Kakhovka, Ukraine. Event date: 00:00.0. Reported best estimate of fatalities: 4. Source record: "Ukrinform: news,2022-11-30,Russians attacked nine regions of Ukraine in a day - OVA summary"
+
+10. source='ICRC Customary IHL'
+score=-1.5961
+id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0125
+text=In its chapter on non-international armed conflict, the manual states: 1044. In selecting targets and/or preparing or executing attacks, care must be taken to direct such attacks only against military objectives, and to limit that collateral damage as far as possible. If necessary, attacks must be cancelled, halted or suspended. If circumstances permit, a warning should be given before an attack that might also affect the civilian population. 1045. Participants in an internal armed conflict shou...
+
+11. source='UCDP Dyadic'
+score=-2.7102
+id=ucdp-dyadic-15101-2017::chunk-0000
+text=The conflict involved Government of Ukraine and LPR. The conflict was located in Ukraine. The conflict record applies to the year 2017. The recorded conflict intensity level was 1. The recorded conflict type was 4. The recorded incompatibility category was 1.
+
+12. source='ICRC Customary IHL'
+score=-3.3021
+id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127
+text=Damage to infrastructure and civilian casualties must be avoided or, in any case, kept to a minimum. Damage to civilian objects must in no case be excessive in relation to the purpose to be achieved. Netherlands, Humanitair Oorlogsrecht: Handleiding, Voorschift No. 27-412, Koninklijke Landmacht, Militair Juridische Dienst, 2005, §§ 1219 and 1221. New Zealand New Zealand’s Military Manual (1992) states: An attack on a military objective may not be considered indiscriminate, disproportionate or ot...
+
+13. source='ICRC IHL Treaty'
+score=-3.7316
+id=icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0119
+text=6. Attacks against the civilian population or civilians by way of reprisals are prohibited. 7. The presence or movements of the civilian population or individual ci - vilians shall not be used to render certain points or areas immune from military operations, in particular in attempts to shield military objec - tives from attacks or to shield, favour or impede military operations. The Parties to the conflict shall not direct the movement of the civilian population or individual civilians in orde...
+
+14. source='ICRC Customary IHL'
+score=-4.3338
+id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0028
+text=However, such collateral civilian damage must not be disproportionate to the concrete and direct military advantage anticipated from the attack. 2. The proportionality test is as follows: Is the attack expected to cause incidental loss of civilian life, injury to civilians, damage to civilian objects, or a combination thereof (“collateral civilian damage”), which would be excessive in relation to the concrete and direct military advantage anticipated? If the answer is “yes”, the attack must be c...
+
+15. source='ICRC Customary IHL'
+score=-4.3444
+id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0334
+text=The law of war acknowledges the unfortunate inevitability of collateral damage when military objectives and civilian objects (including cultural property and natural resources) are commingled. United States, Department of Defense, Report to Congress on International Policies and Procedures Regarding the Protection of Natural and Cultural Resources During Times of War, 19 January 1993, p. 202. United States of America In its written statement submitted to the ICJ in the Nuclear Weapons (WHO) case...
+
+16. source='ICRC Customary IHL'
+score=-4.5581
+id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0032
+text=Rule #2 deals with the legal obligation to minimize harm to civilians and their property while carrying out your mission. It balances the needs of military necessity against the humanitarian principle that civilians should be spared the hardship of conflict. This is known as the principle of proportionality. This principle imposes a duty to ensure that the collateral civilian damage created is not excessive in relation to the concrete and direct military advantage anticipated. ... 4. Whenever mi...
+
+17. source='ICRC Customary IHL'
+score=-5.1065
+id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0033
+text=Unfortunately, there is no scientific scale of “proportionality” on which to measure the permissible amount of collateral civilian damage. International law states that force should only be used against “military objectives.” Your commanders (and in some cases you) must decide if the collateral civilian damage resulting from the use of force is excessive in light of the direct and concrete military advantage anticipated. In most cases the assessment of what is an acceptable level of damage boils...
+
+18. source='ICRC Customary IHL'
+score=-5.3222
+id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0144
+text=Due regard must be had to the principle of proportionality at all times[.] [emphasis in original] South Africa, Advanced Law of Armed Conflict Teaching Manual, School of Military Justice, 1 April 2008, as amended to 25 October 2013, Learning Unit 3, pp. 174 and 182–183. The manual also states: Commanders have a specific responsibility to take the necessary precautions in attacks in order to avoid or minimise loss of civilian life or damage to civilian property collateral to attacks on military o...
+
+19. source='ICRC Customary IHL'
+score=-5.4336
+id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Rules.pdf::chunk-0007
+text=The Principle of Distinction between Civilian Objects and Military Objectives https://ihl-databases.icrc.org/en/customary-ihl/v1/rule7 3/6 The Plan of Action for the years 2000–2003, adopted by the 27th International Conference of the Red Cross and Red Crescent in 1999, requires that all parties to an armed conflict respect “the total ban on directing attacks ... against civilian objects”.[29] The ICRC has called on parties to both international and non-international armed conflicts to respect t...
+
+20. source='ICRC Customary IHL'
+score=-5.9826
+id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0333
+text=31, 1992, p. 622. United States of America In 1992, a legal review by the US Department of the Air Force of the legality of extended range anti-armour munition stated that, while legal as such, this munition “should, however, only be used in concentrations of civilians if the military necessity for such use is great, and the expected collateral civilian casualties would not be excessive in relation to the expected military advantage”. United States, Department of the Air Force, The Judge Advocat...
+===================================================
+
+
+========== AFTER EVIDENCE GUARD DEBUG ==========
+Final evidence count: 20
+Direct evidence count: 9
+Contextual evidence count: 11
+1. [DIRECT] source='UCDP GED', score=1.0391, id=ucdp-ged-433534::chunk-0000
+2. [DIRECT] source='UCDP GED', score=0.9662, id=ucdp-ged-447526::chunk-0000
+3. [DIRECT] source='UCDP GED', score=0.9263, id=ucdp-ged-432804::chunk-0000
+4. [DIRECT] source='UCDP GED', score=0.4286, id=ucdp-ged-448444::chunk-0000
+5. [DIRECT] source='UCDP GED', score=0.2721, id=ucdp-ged-444910::chunk-0000
+6. [DIRECT] source='UCDP GED', score=0.1071, id=ucdp-ged-441275::chunk-0000
+7. [DIRECT] source='UCDP Dyadic', score=0.0081, id=ucdp-dyadic-14117-2025::chunk-0000
+8. [DIRECT] source='UCDP GED', score=-0.0421, id=ucdp-ged-430195::chunk-0000
+9. [DIRECT] source='UCDP GED', score=-0.1062, id=ucdp-ged-456471::chunk-0000
+10. [CONTEXTUAL] source='ICRC Customary IHL', score=-1.5961, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0125
+11. [CONTEXTUAL] source='UCDP Dyadic', score=-2.7102, id=ucdp-dyadic-15101-2017::chunk-0000
+12. [CONTEXTUAL] source='ICRC Customary IHL', score=-3.3021, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127
+13. [CONTEXTUAL] source='ICRC IHL Treaty', score=-3.7316, id=icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0119
+14. [CONTEXTUAL] source='ICRC Customary IHL', score=-4.3338, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0028
+15. [CONTEXTUAL] source='ICRC Customary IHL', score=-4.3444, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0334
+16. [CONTEXTUAL] source='ICRC Customary IHL', score=-4.5581, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0032
+17. [CONTEXTUAL] source='ICRC Customary IHL', score=-5.1065, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0033
+18. [CONTEXTUAL] source='ICRC Customary IHL', score=-5.3222, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0144
+19. [CONTEXTUAL] source='ICRC Customary IHL', score=-5.4336, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Rules.pdf::chunk-0007
+20. [CONTEXTUAL] source='ICRC Customary IHL', score=-5.9826, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0333
+================================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: military
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=1.0391, id=ucdp-ged-433534::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.9662, id=ucdp-ged-447526::chunk-0000
+3. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.9263, id=ucdp-ged-432804::chunk-0000
+4. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.4286, id=ucdp-ged-448444::chunk-0000
+5. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.2721, id=ucdp-ged-444910::chunk-0000
+6. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.1071, id=ucdp-ged-441275::chunk-0000
+7. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.0081, id=ucdp-dyadic-14117-2025::chunk-0000
+8. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.0421, id=ucdp-ged-430195::chunk-0000
+9. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.1062, id=ucdp-ged-456471::chunk-0000
+10. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-2.7102, id=ucdp-dyadic-15101-2017::chunk-0000===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: legal
+1. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-1.5961, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0125
+2. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.3021, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127
+3. source='ICRC IHL Treaty', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.7316, id=icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0119
+4. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.3338, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0028
+5. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.3444, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0334
+6. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.5581, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0032
+7. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.1065, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0033
+8. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.3222, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0144
+9. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.4336, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Rules.pdf::chunk-0007
+10. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.9826, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0333===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: historical
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=1.0391, id=ucdp-ged-433534::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.9662, id=ucdp-ged-447526::chunk-0000
+3. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.9263, id=ucdp-ged-432804::chunk-0000
+4. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.4286, id=ucdp-ged-448444::chunk-0000
+5. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.2721, id=ucdp-ged-444910::chunk-0000
+6. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.1071, id=ucdp-ged-441275::chunk-0000
+7. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.0081, id=ucdp-dyadic-14117-2025::chunk-0000
+8. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.0421, id=ucdp-ged-430195::chunk-0000
+9. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.1062, id=ucdp-ged-456471::chunk-0000
+10. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-2.7102, id=ucdp-dyadic-15101-2017::chunk-0000===============================================
+
+Query mentions ['ukraine', 'uk', 'russia'] but analysis doesn't
+Analysis specificity check failed: Query mentions ['ukraine', 'uk', 'russia'] but analysis doesn't
+
+================================================================================
+MILITARY ANALYSIS
+================================================================================
+The escalation of the Russia–Ukraine conflict has been marked by attacks on civilian areas, with reported fatalities ranging from 1 to 4. The conflict has involved Government of Russia (Soviet Union) and Government of Ukraine, with events occurring in various locations, including Veliky Sambir, Donetsk region, Kiev, and Kakhovka. The conflict intensity level has been recorded at 2, indicating a moderate level of violence. The conflict type has been categorized as 2, indicating a non-international armed conflict. The incompatibility category has been recorded at 3, indicating a high level of incompatibility between the parties involved.
+
+================================================================================
+LEGAL ANALYSIS
+================================================================================
+The principle of proportionality in international humanitarian law requires that military forces take all feasible precautions to avoid or minimize harm to civilians and civilian objects. The principle is based on the humanitarian principle that civilians should be spared the hardship of conflict. The principle imposes a duty to ensure that the collateral civilian damage created is not excessive in relation to the concrete and direct military advantage anticipated. In most cases, the assessment of what is an acceptable level of damage boils down to common sense. For example, the complete destruction of a town in order to eliminate a small pocket of opposing forces would be seen as unacceptable. In that case, the collateral civilian damage (numerous civilian casualties and widespread destruction of civilian property) would be excessive in light of the military advantage anticipated. The principle of proportionality is not a scientific scale, but rather a general guideline that requires commanders to use their discretion and common sense in making decisions about the use of force. The principle is also subject to the principle of distinction, which requires that military forces distinguish between military objectives and civilian objects. In 1992, the US Department of the Air Force stated that extended range anti-armour munition should only be used in concentrations of civilians if the military necessity for such use is great, and the expected collateral civilian casualties would not be excessive in relation to the expected military advantage. In 1993, the US Department of Defense stated that cultural property, civilian objects, and natural resources are protected from collateral damage that is clearly disproportionate to the military advantage to be gained in the attack of military objectives. These statements demonstrate the application of the principle of proportionality in practice. In summary, the principle of proportionality requires that military forces take all feasible precautions to avoid or minimize harm to civilians and civilian objects, and that commanders use their discretion and common sense in making decisions about the use of force. The principle is also subject to the principle of distinction, which requires that military forces distinguish between military objectives and civilian objects. The principle of proportionality is not a scientific scale, but rather a general guideline that requires commanders to use their discretion and common sense in making decisions about the use of force. The principle is also subject to the principle of distinction, which requires that military forces distinguish between military objectives and civilian objects. The principle of proportionality is not a scientific scale, but rather a general guideline that requires commanders to use their discretion and common sense in making decisions about the use of force. The principle of proportionality is not a
+
+================================================================================
+HISTORICAL ANALYSIS
+================================================================================
+The escalation of the Russia–Ukraine conflict has been marked by attacks on civilian areas, damage to essential infrastructure, and competing claims about responsibility. From a military perspective, the conflict has involved a mix of conventional and unconventional tactics, including the use of artillery, aerial bombardments, and cyberattacks. The conflict has also seen the involvement of various actors, including the Russian military, Ukrainian forces, and separatist groups. From a legal perspective, the conflict raises concerns about civilian protection, the use of prohibited means of warfare, and the applicability of international humanitarian law. The conflict has also seen competing claims about responsibility, with Russia and Ukraine each accusing the other of violating international law. From a historical perspective, the conflict has its roots in the post-Soviet era, with tensions between Russia and Ukraine dating back to the dissolution of the Soviet Union. The conflict has also seen a pattern of escalation, with each side increasing its military presence and intensity over time.
+
+================================================================================
+CLAIM VERIFICATION
+================================================================================
+- Claim: The event involved Government of Russia (Soviet Union) and Government of Ukraine.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-456471::chunk-0000, ucdp-ged-444910::chunk-0000
+- Claim: The event occurred in the village of Veliky Sambir, Ukraine.
+  Status: PARTIALLY_SUPPORTED
+  Support score: 0.50
+  Verified: False
+  Supporting evidence: ucdp-ged-433534::chunk-0000, ucdp-ged-432804::chunk-0000
+- Claim: The event occurred in Donetsk region: Dolyna, Ukraine.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-447526::chunk-0000, ucdp-ged-441275::chunk-0000
+- Claim: The reported best estimate of fatalities was 2.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-447526::chunk-0000, ucdp-ged-433534::chunk-0000
+- Claim: The event involved Government of Russia (Soviet Union) and Civilians.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-444910::chunk-0000, ucdp-ged-447526::chunk-0000
+
+================================================================================
+CONTRADICTIONS
+================================================================================
+- ucdp-ged-433534::chunk-0000 vs ucdp-ged-447526::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-447526::chunk-0000 vs ucdp-ged-432804::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-432804::chunk-0000 vs ucdp-ged-448444::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-448444::chunk-0000 vs ucdp-ged-444910::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-444910::chunk-0000 vs ucdp-ged-441275::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-441275::chunk-0000 vs ucdp-dyadic-14117-2025::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+
+================================================================================
+CONFIDENCE
+================================================================================
+Final score: 77.38/100
+Confidence level: HIGH
+Relevance: 54.71
+Agreement: 100.00
+Freshness: 48.00
+Source reliability: 92.50
+Claim support: 90.00
+
+================================================================================
+CITATIONS
+================================================================================
+- ucdp-ged-433534::chunk-0000: UCDP GED
+  Title: Government of Russia (Soviet Union) - Civilians
+- ucdp-ged-447526::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-ged-432804::chunk-0000: UCDP GED
+  Title: Government of Russia (Soviet Union) - Civilians
+- ucdp-ged-448444::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-ged-444910::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-ged-441275::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-dyadic-14117-2025::chunk-0000: UCDP Dyadic
+  Title: Russia (Soviet Union), Ukraine
+- ucdp-ged-430195::chunk-0000: UCDP GED
+  Title: Government of Russia (Soviet Union) - Civilians
+- ucdp-ged-456471::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-dyadic-15101-2017::chunk-0000: UCDP Dyadic
+  Title: Ukraine
+- icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0125: ICRC Customary IHL
+  Title: Rule 15: Precautions (Practice)
+- icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127: ICRC Customary IHL
+  Title: Rule 15: Precautions (Practice)
+- icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0119: ICRC IHL Treaty
+  Title: Additional Protocols
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0028: ICRC Customary IHL
+  Title: Rule 14: Proportionality (Practice)
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0334: ICRC Customary IHL
+  Title: Rule 14: Proportionality (Practice)
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0032: ICRC Customary IHL
+  Title: Rule 14: Proportionality (Practice)
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0033: ICRC Customary IHL
+  Title: Rule 14: Proportionality (Practice)
+- icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0144: ICRC Customary IHL
+  Title: Rule 15: Precautions (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Rules.pdf::chunk-0007: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Rules)
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0333: ICRC Customary IHL
+  Title: Rule 14: Proportionality (Practice)
+
+================================================================================
+ANALYSIS COMPLETE
+================================================================================

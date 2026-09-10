@@ -15,7 +15,7 @@ class EvidenceGuardResult:
 
 
 class EvidenceConsistencyGuard:
-    """Separates query-relevant evidence from potentially contextual evidence."""
+    """Separates situation-relevant evidence from contextual evidence."""
 
     def filter(
         self,
@@ -24,16 +24,23 @@ class EvidenceConsistencyGuard:
         evidence: tuple[AnalysisEvidence, ...],
     ) -> EvidenceGuardResult:
         query_entities = self._extract_entities(query)
+        query_topics = self._extract_topics(query)
 
         direct: list[AnalysisEvidence] = []
         contextual: list[AnalysisEvidence] = []
 
         for item in evidence:
-            evidence_entities = self._extract_entities(
-                f"{item.title} {item.text}"
-            )
+            evidence_text = f"{item.title} {item.text}"
 
-            if self._is_consistent(query_entities, evidence_entities):
+            evidence_entities = self._extract_entities(evidence_text)
+            evidence_topics = self._extract_topics(evidence_text)
+
+            if self._is_directly_relevant(
+                query_entities=query_entities,
+                evidence_entities=evidence_entities,
+                query_topics=query_topics,
+                evidence_topics=evidence_topics,
+            ):
                 direct.append(item)
             else:
                 contextual.append(item)
@@ -67,6 +74,7 @@ class EvidenceConsistencyGuard:
         }
 
         normalized = text.lower()
+
         return {
             country
             for country in countries
@@ -74,19 +82,104 @@ class EvidenceConsistencyGuard:
         }
 
     @staticmethod
-    def _is_consistent(
+    def _extract_topics(text: str) -> set[str]:
+        """Extract broad situation-level topics from military queries."""
+
+        topic_keywords = {
+            "artillery",
+            "shelling",
+            "airstrike",
+            "airstrikes",
+            "missile",
+            "missiles",
+            "attack",
+            "attacks",
+            "escalation",
+            "conflict",
+            "clash",
+            "clashes",
+            "fighting",
+            "fire",
+            "ceasefire",
+            "border",
+            "civilian",
+            "civilians",
+            "civilian_infrastructure",
+            "infrastructure",
+            "populated",
+            "population",
+            "casualties",
+            "displacement",
+            "military",
+            "troops",
+            "forces",
+            "defensive",
+            "defense",
+            "defence",
+            "humanitarian",
+            "international_humanitarian_law",
+            "ihl",
+            "war",
+        }
+
+        normalized = text.lower()
+
+        # Normalize common multi-word concepts.
+        normalized = normalized.replace(
+            "civilian infrastructure",
+            "civilian_infrastructure",
+        )
+        normalized = normalized.replace(
+            "international humanitarian law",
+            "international_humanitarian_law",
+        )
+
+        return {
+            topic
+            for topic in topic_keywords
+            if re.search(rf"\b{re.escape(topic)}\b", normalized)
+        }
+
+    @staticmethod
+    def _is_directly_relevant(
+        *,
         query_entities: set[str],
         evidence_entities: set[str],
+        query_topics: set[str],
+        evidence_topics: set[str],
     ) -> bool:
-        if not query_entities:
-            return True
+        """
+        Determine whether evidence is sufficiently aligned with the query.
 
-        if not evidence_entities:
-            return False
+        Direct evidence requires:
+        1. Country/entity consistency.
+        2. At least one meaningful topic overlap.
 
-        # For multi-country queries, require all identified
-        # query countries to appear in the evidence.
-        if len(query_entities) >= 2:
-            return query_entities.issubset(evidence_entities)
+        For multi-country queries, all identified query countries must
+        appear in the evidence.
+        """
 
-        return bool(query_entities.intersection(evidence_entities))
+        # If the query contains identifiable countries, the evidence
+        # must contain the same country set.
+        if query_entities:
+            if not evidence_entities:
+                return False
+
+            if len(query_entities) >= 2:
+                if not query_entities.issubset(evidence_entities):
+                    return False
+            elif not query_entities.intersection(evidence_entities):
+                return False
+
+        # Country consistency alone is not enough.
+        # Require meaningful situation/topic overlap.
+        if query_topics:
+            if not evidence_topics:
+                return False
+
+            topic_overlap = query_topics.intersection(evidence_topics)
+
+            if not topic_overlap:
+                return False
+
+        return True

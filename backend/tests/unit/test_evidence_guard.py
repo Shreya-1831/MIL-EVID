@@ -83,3 +83,57 @@ def test_evidence_without_identifiable_country_is_contextual():
 
     assert len(result.direct_evidence) == 0
     assert len(result.contextual_evidence) == 1
+
+
+def test_same_countries_but_unrelated_topic_is_contextual():
+    guard = EvidenceConsistencyGuard()
+
+    evidence = (
+        make_evidence(
+            evidence_id="old",
+            title="India Pakistan diplomatic relations",
+            text=(
+                "India and Pakistan discussed diplomatic relations "
+                "and regional cooperation."
+            ),
+        ),
+    )
+
+    result = guard.filter(
+        query=(
+            "India Pakistan border artillery escalation "
+            "near populated areas"
+        ),
+        evidence=evidence,
+    )
+
+    assert len(result.direct_evidence) == 0
+    assert len(result.contextual_evidence) == 1
+    assert result.contextual_evidence[0].evidence_id == "old"
+
+
+def test_same_countries_and_relevant_topic_is_direct():
+    guard = EvidenceConsistencyGuard()
+
+    evidence = (
+        make_evidence(
+            evidence_id="direct",
+            title="India Pakistan border shelling",
+            text=(
+                "India and Pakistan exchanged artillery fire "
+                "along the border, causing civilian casualties."
+            ),
+        ),
+    )
+
+    result = guard.filter(
+        query=(
+            "India Pakistan border artillery escalation "
+            "near populated areas"
+        ),
+        evidence=evidence,
+    )
+
+    assert len(result.direct_evidence) == 1
+    assert result.direct_evidence[0].evidence_id == "direct"
+    assert len(result.contextual_evidence) == 0

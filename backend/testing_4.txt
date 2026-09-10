@@ -1,0 +1,201 @@
+================================================================================      
+MIL-EVID — FULL ANALYSIS PIPELINE
+================================================================================
+
+Enter your military situation query:
+> How should military tensions between India and Pakistan be assessed from military, legal, and historical perspectives, particularly regarding attacks, civilian protection, and escalation?
+
+[1/4] Loading retrieval indexes...
+[2/4] Loading cross-encoder reranker...
+[3/4] Initializing evidence context and Llama 3.2 3B...
+[4/4] Running analysis...
+
+Retrieving and reranking evidence...
+2026-09-10 12:35:37 [info     ] embedding_model_loading        model_name=sentence-transformers/all-MiniLM-L6-v2
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: military
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.7740, id=ucdp-ged-372180::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.5482, id=ucdp-ged-366298::chunk-0000
+3. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8342, id=ucdp-dyadic-422-1994::chunk-0000
+4. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8380, id=ucdp-dyadic-422-1992::chunk-0000
+5. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8805, id=ucdp-dyadic-422-1964::chunk-0000
+6. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8807, id=ucdp-dyadic-422-2025::chunk-0000
+7. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.4810, id=ucdp-ged-369889::chunk-0000
+8. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5043, id=ucdp-ged-55527::chunk-0000
+9. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5325, id=ucdp-ged-59724::chunk-0000
+10. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.6225, id=ucdp-ged-368211::chunk-0000===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: legal
+1. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.2433, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0051
+2. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.7971, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0888
+3. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.8364, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903
+4. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.8364, id=icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0374
+5. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.2346, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016
+6. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.7253, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315
+7. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.8623, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020
+8. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.9794, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0009
+9. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.2654, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119
+10. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.3331, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0008===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: historical
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.7740, id=ucdp-ged-372180::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.5482, id=ucdp-ged-366298::chunk-0000
+3. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8342, id=ucdp-dyadic-422-1994::chunk-0000
+4. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8380, id=ucdp-dyadic-422-1992::chunk-0000
+5. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8805, id=ucdp-dyadic-422-1964::chunk-0000
+6. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8807, id=ucdp-dyadic-422-2025::chunk-0000
+7. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.4810, id=ucdp-ged-369889::chunk-0000
+8. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5043, id=ucdp-ged-55527::chunk-0000
+9. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5325, id=ucdp-ged-59724::chunk-0000
+10. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.6225, id=ucdp-ged-368211::chunk-0000===============================================
+
+Rejecting malformed temporal claim: 'The event occurred on 00:00.0, but the exact date is not specified in the evidence.'
+
+================================================================================
+MILITARY ANALYSIS
+================================================================================
+Military tensions between India and Pakistan are characterized by frequent clashes and low-level violence along the Line of Control (LoC) and the Working Boundary. The military perspective indicates that these tensions are fueled by competing claims to Kashmir and have resulted in numerous reported fatalities, with varying estimates of casualties. The military dynamics suggest that both countries maintain significant military presence along the LoC and Working Boundary, with frequent incidents of ceasefire violations and artillery exchanges. The operational implications of these tensions include the potential for escalation, with both countries possessing nuclear capabilities that could exacerbate the conflict. The military analysis is grounded in the evidence, which indicates that the conflict has been ongoing since 1947, with numerous reported incidents and fatalities along the LoC and Working Boundary.
+
+================================================================================
+LEGAL ANALYSIS
+================================================================================
+The international humanitarian law emphasizes the principle of distinction, which obliges warring parties to distinguish between the civilian population and combatants, and between civilian objects and military objectives. This principle is explicitly confirmed by Article 51(2) of Additional Protocol I, which states that civilians and the civilian population as such should not be the object of attack. The principle of proportionality also requires that attacks be directed solely against military objectives and that the expected harm to civilians be minimized. However, the direct evidence on the specific situation between India and Pakistan is insufficient to draw conclusions on military tensions, civilian protection, and escalation.
+
+================================================================================
+HISTORICAL ANALYSIS
+================================================================================
+The historical analysis of military tensions between India and Pakistan reveals a pattern of conflict and violence along the Line of Control (LoC) and the Working Boundary. The conflict has been characterized by low-intensity warfare, with both sides engaging in skirmishes and artillery exchanges. The reported best estimate of fatalities in these conflicts is typically low, with most incidents resulting in zero or one reported fatality. The conflict has been marked by a lack of escalation, with neither side seeking to engage in full-scale war. However, the situation remains volatile, with periodic outbreaks of violence and tensions running high.
+
+================================================================================
+CLAIM VERIFICATION
+================================================================================
+- Claim: The event occurred in Line of Control, Pakistan.
+  Status: UNSUPPORTED
+  Support score: 0.00
+  Verified: False
+  Supporting evidence: ucdp-ged-369889::chunk-0000, ucdp-ged-55527::chunk-0000
+- Claim: The event involved Government of India and Government of Pakistan.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-55527::chunk-0000, ucdp-ged-372180::chunk-0000
+- Claim: The event occurred on 00:00.0, but the exact date is not specified in the evidence.
+  Status: UNSUPPORTED
+  Support score: 0.00
+  Verified: False
+  Supporting evidence: None
+- Claim: The event resulted in 0 reported fatalities.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-369889::chunk-0000, ucdp-ged-55527::chunk-0000
+- Claim: The principle of distinction obliges warring parties to distinguish between the civilian population and combatants, and between civilian objects and military objectives.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903, icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0374
+- Claim: Article 51(2) of Additional Protocol I explicitly confirms that civilians and the civilian population as such should not be the object of attack.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0374, icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903
+- Claim: The principle of proportionality requires that attacks be directed solely against military objectives and that the expected harm to civilians be minimized.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020, icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119
+- Claim: The direct evidence on the specific situation between India and Pakistan is insufficient to draw conclusions on military tensions, civilian protection, and escalation.
+  Status: UNSUPPORTED
+  Support score: 0.00
+  Verified: False
+  Supporting evidence: icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020
+- Claim: The reported best estimate of fatalities in the event was 0.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-55527::chunk-0000, ucdp-ged-369889::chunk-0000
+- Claim: The event occurred in 2001.
+  Status: UNSUPPORTED
+  Support score: 0.00
+  Verified: False
+  Supporting evidence: ucdp-ged-369889::chunk-0000, icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016
+
+================================================================================
+CONTRADICTIONS
+================================================================================
+- ucdp-ged-372180::chunk-0000 vs ucdp-ged-366298::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-366298::chunk-0000 vs ucdp-dyadic-422-1994::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-dyadic-422-1994::chunk-0000 vs ucdp-dyadic-422-1992::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-dyadic-422-1992::chunk-0000 vs ucdp-dyadic-422-1964::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-dyadic-422-1964::chunk-0000 vs ucdp-dyadic-422-2025::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-dyadic-422-2025::chunk-0000 vs ucdp-ged-369889::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+
+================================================================================
+CONFIDENCE
+================================================================================
+Final score: 68.51/100
+Confidence level: MEDIUM
+Relevance: 44.45
+Agreement: 100.00
+Freshness: 46.00
+Source reliability: 92.50
+Claim support: 60.00
+
+================================================================================
+CITATIONS
+================================================================================
+- ucdp-ged-372180::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-366298::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-dyadic-422-1994::chunk-0000: UCDP Dyadic
+  Title: India, Pakistan
+- ucdp-dyadic-422-1992::chunk-0000: UCDP Dyadic
+  Title: India, Pakistan
+- ucdp-dyadic-422-1964::chunk-0000: UCDP Dyadic
+  Title: India, Pakistan
+- ucdp-dyadic-422-2025::chunk-0000: UCDP Dyadic
+  Title: India, Pakistan
+- ucdp-ged-369889::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-55527::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-59724::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-368211::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0051: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0888: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_14_proportionality/rule_14_Practice.pdf::chunk-0374: ICRC Customary IHL
+  Title: Rule 14: Proportionality (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0009: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0008: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+
+================================================================================
+ANALYSIS COMPLETE
+================================================================================

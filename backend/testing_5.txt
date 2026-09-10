@@ -1,0 +1,322 @@
+================================================================================   
+MIL-EVID — FULL ANALYSIS PIPELINE
+================================================================================
+
+Enter your military situation query:
+> How should military tensions between India and Pakistan be assessed from military, legal, and historical perspectives, particularly regarding attacks, civilian protection, and escalation?
+
+[1/4] Loading retrieval indexes...
+[2/4] Loading cross-encoder reranker...
+[3/4] Initializing evidence context and Llama 3.2 3B...
+[4/4] Running analysis...
+
+Retrieving and reranking evidence...
+2026-09-10 14:00:01 [info     ] embedding_model_loading        model_name=sentence-transformers/all-MiniLM-L6-v2
+
+========== POST-RERANK EVIDENCE DEBUG ==========
+Input evidence count: 30
+Selected evidence count: 20
+1. source='UCDP GED', score=0.7740, id=ucdp-ged-372180::chunk-0000
+2. source='UCDP GED', score=0.5482, id=ucdp-ged-366298::chunk-0000
+3. source='UCDP Dyadic', score=-0.8342, id=ucdp-dyadic-422-1994::chunk-0000
+4. source='UCDP GED', score=-1.4810, id=ucdp-ged-369889::chunk-0000
+5. source='UCDP GED', score=-1.5043, id=ucdp-ged-55527::chunk-0000
+6. source='UCDP GED', score=-1.5325, id=ucdp-ged-59724::chunk-0000
+7. source='UCDP GED', score=-1.6225, id=ucdp-ged-368211::chunk-0000
+8. source='UCDP GED', score=-1.6548, id=ucdp-ged-58794::chunk-0000
+9. source='UCDP GED', score=-1.8689, id=ucdp-ged-59689::chunk-0000
+10. source='UCDP GED', score=-2.1691, id=ucdp-ged-108867::chunk-0000
+11. source='ICRC Customary IHL', score=-3.2433, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0051
+12. source='ICRC Customary IHL', score=-3.7971, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0888
+13. source='ICRC Customary IHL', score=-3.8364, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903
+14. source='ICRC Customary IHL', score=-4.2346, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016
+15. source='ICRC Customary IHL', score=-4.7253, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315
+16. source='ICRC Customary IHL', score=-4.8623, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020
+17. source='ICRC Customary IHL', score=-4.9794, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0009
+18. source='ICRC Customary IHL', score=-5.2654, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119
+19. source='ICRC Customary IHL', score=-5.3331, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0008
+20. source='ICRC Customary IHL', score=-5.4071, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0402
+===============================================
+
+
+========== SELECTED EVIDENCE TEXT DEBUG ==========
+
+1. source='UCDP GED'
+score=0.7740
+id=ucdp-ged-372180::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in Sialkot sector, Pakistan. Event date: 00:00.0. Reported best estimate of fatalities: 1. Source record: "Reuters News,1997-06-12,Pakistan says Indian military acts raise tension."
+
+2. source='UCDP GED'
+score=0.5482
+id=ucdp-ged-366298::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in Working Boundary in Shakargarh sector and on the LoC in Nikial sector, Pakistan. Event date: 00:00.0. Reported best estimate of fatalities: 5. Source record: "Associated Press Newswires,2016-10-28,Tensions soar along frontier in disputed Kashmir region AU Aijaz Hussain";"India TV News,2016-10-28,Pakistan Army denies killing of 15 soldiers, terms India’s claim as ‘propaganda’"
+
+3. source='UCDP Dyadic'
+score=-0.8342
+id=ucdp-dyadic-422-1994::chunk-0000
+text=The conflict involved Government of India and Government of Pakistan. The conflict was located in India, Pakistan. The conflict record applies to the year 1994. The recorded conflict intensity level was 1. The recorded conflict type was 2. The recorded incompatibility category was 1.
+
+4. source='UCDP GED'
+score=-1.4810
+id=ucdp-ged-369889::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in Line of Control, Pakistan. Event date: 00:00.0. Reported best estimate of fatalities: 0. Source record: "Agence France Presse,2001-12-26,Indian troops claim 16 Pakistani soldiers killed: report"
+
+5. source='UCDP GED'
+score=-1.5043
+id=ucdp-ged-55527::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in Line of Control, India. Event date: 00:00.0. Reported best estimate of fatalities: 0. Source record: Reuters 3/6 "Pakistan says 35 Indian troops killed, wounded
+
+6. source='UCDP GED'
+score=-1.5325
+id=ucdp-ged-59724::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in near Rawalakot in Pakistan-controlled Kashmir, Pakistan. Event date: 00:00.0. Reported best estimate of fatalities: 1. Source record: Pakistan says Indian troops kill Pakistani soldier 19 January 2010 AP
+
+7. source='UCDP GED'
+score=-1.6225
+id=ucdp-ged-368211::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in across the frontier dividing Kashmir between them, Pakistan. Event date: 00:00.0. Reported best estimate of fatalities: 2. Source record: "Associated Press Newswires,2002-05-20,Pakistan seeks international pressure on India to open dialogue"
+
+8. source='UCDP GED'
+score=-1.6548
+id=ucdp-ged-58794::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in LoC, India. Event date: 00:00.0. Reported best estimate of fatalities: 3. Source record: Pakistan says 3 troops killed by Indian soldiers 1 September 2011 Reuters News
+
+9. source='UCDP GED'
+score=-1.8689
+id=ucdp-ged-59689::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in Line of Control, India. Event date: 00:00.0. Reported best estimate of fatalities: 1. Source record: Reuters 23/5 "WRAPUP 7-Islamabad on warfooting, India softens rhetoric
+
+10. source='UCDP GED'
+score=-2.1691
+id=ucdp-ged-108867::chunk-0000
+text=Conflict: India - Pakistan. The event involved Government of India and Government of Pakistan. The event occurred in on Indian positions in the Balnoi area of Krishna Ghati sector in Poonch District., India. Event date: 00:00.0. Reported best estimate of fatalities: 1. Source record: SATP, Jammu and Kashmir Timeline 2010 BBC Monitoring South Asia, 24 May 2010 Indian soldier hurt in Pakistani firing across Kashmir cease-fire line - paper
+
+11. source='ICRC Customary IHL'
+score=-3.2433
+id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0051
+text=Attacks must be directed solely against military objectives. ... - Distinction. This principle entails that, during any conflict situation, one should always distinguish between military and civilian personnel and/or objects, and also between what is permitted and what is prohibited wrt [with regard to] weapons and actions. South Africa, Advanced Law of Armed Conflict Teaching Manual, School of Military Justice, 1 April 2008, as amended to 25 October 2013, Learning Unit 1, pp. 16–17 and 46. The ...
+
+12. source='ICRC Customary IHL'
+score=-3.7971
+id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0888
+text=This provision states in clear language that civilians and the civilian population as such should not be the object of attack. It does not mention any exceptions. In particular, it does not contemplate derogating from this rule by invoking military necessity. 45. The Trial Chamber recalls that the provision in question explicitly confirms the customary rule that civilians must enjoy general protection against the danger arising from hostilities. The prohibition against attacking civilians stems ...
+
+13. source='ICRC Customary IHL'
+score=-3.8364
+id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903
+text=191. ... [T]he Trial Chamber considered that Article 51(2) of Additional Protocol I “states in a clear language that civilians and the civilian population as such should not be the object of attack”, that this principle “does not mention any exceptions”, and in particular that it “does not contemplate derogating from this rule by invoking military necessity.” It then held that Article 51(2) “explicitly confirms the customary rule that civilians must enjoy general protection against the danger ar...
+
+14. source='ICRC Customary IHL'
+score=-4.2346
+id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016
+text=In its chapter on targeting, the manual further states: 403.Distinction principle 1. To ensure respect for and protection of the civilian population and civilian objects, commanders shall at all times distinguish between the civilian population and combatants and between civilian objects and military objectives. ... 411.Protection of civilians and civilian objects 1. The protection of civilians and civilian objects is a fundamental principle of the LOAC. Parties to a conflict have a duty to dist...
+
+15. source='ICRC Customary IHL'
+score=-4.7253
+id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315
+text=Civilians must be protected from the dangers of military operations. They must not be the object of attack ... 5.22 Refugees and displaced persons ... Refugees and displaced persons are civilians and as such are protected persons and must be afforded corresponding protection. ... Protection of civilians and civilian objects 5.35 There is a fundamental rule that parties to a conflict must direct their operations only against military objectives. G. P. I [1977 Additional Protocol I] expressly prov...
+
+16. source='ICRC Customary IHL'
+score=-4.8623
+id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020
+text=Attacks may only be directed against combatants. Civilians must not be targeted.” ... ... ... 4. Rules for the conduct of hostilities ...8/20/26, 4:49 PM Customary IHL - Practice relating to rule 1 The Principle of Distinction between Civilians and Combatants https://ihl-databases.icrc.org/en/customary-ihl/v2/rule1 8/313 a. Prohibition of indiscriminate attacks and [notion of] protected persons Article 48 of the [1977] Additional Protocol I to the [1949] Geneva Conventions expressly enshrines th...
+
+17. source='ICRC Customary IHL'
+score=-4.9794
+id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0009
+text=The second component distinguishes between legitimate military targets and civilian objects. Military operations must only be conducted against military objectives, including combatants. Non-combatants and civilian objects are protected from attack, that is, they are not legitimate objects of attack. LOAC therefore requires that belligerents maintain the clear distinction between armed forces and civilians taking no direct part in hostilities; that is, between combatants and non-combatants, and ...
+
+18. source='ICRC Customary IHL'
+score=-5.2654
+id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119
+text=Distinction International humanitarian law protects the civilian population and prohibits attacks against Civilians and Civilian objects. One of its ground rules is the principle of distinction: the parties to a conflict are obliged to conduct military operations exclusively against Militaryobjectives and must therefore always distinguish between Civilians and Combatants as well as between Civilian objects and Military objectives. ... ... Military objectives International humanitarian law distin...
+
+19. source='ICRC Customary IHL'
+score=-5.3331
+id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0008
+text=The basic rule in respect of civilians which flows from this is that a distinction must be made between the civilian population and combatants, and between civilian objects and military objectives, in order that military operations will only be directed against military objectives. Australia, Manual on Law of Armed Conflict, Australian Defence Force Publication, Operations Series, ADFP 37 – Interim Edition, 1994, §§ 210, 504 and 913. Australia Australia’s LOAC Manual (2006) states: 2.11 Although...
+
+20. source='ICRC Customary IHL'
+score=-5.4071
+id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0402
+text=International humanitarian law stipulates the military operations, tactics and weapons that are permissible. The two generally accepted principles of Distinction and Proportionality are the basis for a number of specific rules such as the prohibition of direct attacks on the civilian population or on Civilian objects, ... ... Distinction International humanitarian law protects the civilian population and prohibits attacks against Civilians and Civilian objects. One of its ground rules is the pri...
+===================================================
+
+
+========== AFTER EVIDENCE GUARD DEBUG ==========
+Final evidence count: 20
+Direct evidence count: 1
+Contextual evidence count: 19
+1. [DIRECT] source='UCDP GED', score=0.7740, id=ucdp-ged-372180::chunk-0000
+2. [CONTEXTUAL] source='UCDP GED', score=0.5482, id=ucdp-ged-366298::chunk-0000
+3. [CONTEXTUAL] source='UCDP Dyadic', score=-0.8342, id=ucdp-dyadic-422-1994::chunk-0000
+4. [CONTEXTUAL] source='UCDP GED', score=-1.4810, id=ucdp-ged-369889::chunk-0000
+5. [CONTEXTUAL] source='UCDP GED', score=-1.5043, id=ucdp-ged-55527::chunk-0000
+6. [CONTEXTUAL] source='UCDP GED', score=-1.5325, id=ucdp-ged-59724::chunk-0000
+7. [CONTEXTUAL] source='UCDP GED', score=-1.6225, id=ucdp-ged-368211::chunk-0000
+8. [CONTEXTUAL] source='UCDP GED', score=-1.6548, id=ucdp-ged-58794::chunk-0000
+9. [CONTEXTUAL] source='UCDP GED', score=-1.8689, id=ucdp-ged-59689::chunk-0000
+10. [CONTEXTUAL] source='UCDP GED', score=-2.1691, id=ucdp-ged-108867::chunk-0000
+11. [CONTEXTUAL] source='ICRC Customary IHL', score=-3.2433, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0051
+12. [CONTEXTUAL] source='ICRC Customary IHL', score=-3.7971, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0888
+13. [CONTEXTUAL] source='ICRC Customary IHL', score=-3.8364, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903
+14. [CONTEXTUAL] source='ICRC Customary IHL', score=-4.2346, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016
+15. [CONTEXTUAL] source='ICRC Customary IHL', score=-4.7253, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315
+16. [CONTEXTUAL] source='ICRC Customary IHL', score=-4.8623, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020
+17. [CONTEXTUAL] source='ICRC Customary IHL', score=-4.9794, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0009
+18. [CONTEXTUAL] source='ICRC Customary IHL', score=-5.2654, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119
+19. [CONTEXTUAL] source='ICRC Customary IHL', score=-5.3331, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0008
+20. [CONTEXTUAL] source='ICRC Customary IHL', score=-5.4071, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0402
+================================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: military
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.7740, id=ucdp-ged-372180::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.5482, id=ucdp-ged-366298::chunk-0000
+3. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8342, id=ucdp-dyadic-422-1994::chunk-0000
+4. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.4810, id=ucdp-ged-369889::chunk-0000
+5. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5043, id=ucdp-ged-55527::chunk-0000
+6. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5325, id=ucdp-ged-59724::chunk-0000
+7. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.6225, id=ucdp-ged-368211::chunk-0000
+8. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.6548, id=ucdp-ged-58794::chunk-0000
+9. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.8689, id=ucdp-ged-59689::chunk-0000
+10. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-2.1691, id=ucdp-ged-108867::chunk-0000===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: legal
+1. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.2433, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0051
+2. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.7971, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0888
+3. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.8364, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903
+4. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.2346, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016
+5. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.7253, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315
+6. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.8623, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020
+7. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.9794, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0009
+8. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.2654, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119
+9. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.3331, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0008
+10. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.4071, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0402===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: historical
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.7740, id=ucdp-ged-372180::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.5482, id=ucdp-ged-366298::chunk-0000
+3. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.8342, id=ucdp-dyadic-422-1994::chunk-0000
+4. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.4810, id=ucdp-ged-369889::chunk-0000
+5. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5043, id=ucdp-ged-55527::chunk-0000
+6. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.5325, id=ucdp-ged-59724::chunk-0000
+7. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.6225, id=ucdp-ged-368211::chunk-0000
+8. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.6548, id=ucdp-ged-58794::chunk-0000
+9. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-1.8689, id=ucdp-ged-59689::chunk-0000
+10. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-2.1691, id=ucdp-ged-108867::chunk-0000===============================================
+
+
+================================================================================
+MILITARY ANALYSIS
+================================================================================
+The India-Pakistan conflict has involved numerous military and operational dynamics, but the specific incident of 15 Indian soldiers being killed by Pakistani forces is not supported by the provided evidence. The evidence suggests that there have been various incidents of military clashes and fatalities on both sides, but the exact number of Indian soldiers killed by Pakistani forces is not confirmed. The Pakistani Army has denied killing 15 Indian soldiers, terming India's claim as 'propaganda'.
+
+================================================================================
+LEGAL ANALYSIS
+================================================================================
+The Principle of Distinction is a fundamental rule in International Humanitarian Law (IHL) that requires parties to a conflict to distinguish between combatants and civilians, as well as between military objectives and civilian objects. This principle is enshrined in Article 48 of the 1977 Additional Protocol I to the 1949 Geneva Conventions. The rule is supported by contextual evidence from the ICRC Customary IHL, which states that 'in order to ensure respect for and protection of the civilian population and civilian objects, the Parties to the conflict shall at all times distinguish between the civilian population and combatants and between civilian objects and military objectives, and accordingly direct their operations only against military objectives' (ICRC Customary IHL, Rule 07: Distinction Objects, Practice). This distinction is also supported by the ICRC Customary IHL, which states that 'the parties to a conflict are obliged to conduct military operations exclusively against Military objectives and must therefore always distinguish between Civilians and Combatants as well as between Civilian objects and Military objectives' (ICRC Customary IHL, Rule 07: Distinction Objects, Practice). The principle of distinction is also supported by the Australian LOAC Manual, which states that 'distinction has two components... The first, relating to personnel, seeks to maintain the distinction between combatants and non-combatants or civilian and military personnel' (Australian LOAC Manual, 1994, § 504). The principle of distinction is not explicitly mentioned in the context of India and Pakistan, but it is a general principle of IHL that applies to all conflicts. Therefore, the principle of distinction is a supported legal standard that requires parties to a conflict to distinguish between combatants and civilians, as well as between military objectives and civilian objects. However, without further information on the specific conflict in India and Pakistan, it is not possible to determine whether this principle applies in this context. The evidence does not establish whether the principle of distinction was complied with or violated in the specific conflict in India and Pakistan. The evidence does not establish whether the principle of distinction was applied in the specific conflict in India and Pakistan. The evidence does not establish whether the principle of distinction was violated in the specific conflict in India and Pakistan. The evidence does not establish whether the principle of distinction was complied with in the specific conflict in India and Pakistan. The evidence does not establish whether the principle of distinction was violated in the specific conflict in
+
+================================================================================
+HISTORICAL ANALYSIS
+================================================================================
+The conflict between India and Pakistan has been marked by a series of military incidents and fatalities, with both countries accusing each other of aggression. However, the evidence does not provide a clear picture of the number of fatalities or the circumstances surrounding these incidents. According to the UCDP GED, there have been reports of fatalities on both sides, but the exact numbers are not provided. The Agence France Presse report from 2001 states that Indian troops claimed 16 Pakistani soldiers were killed, while the Reuters report from 2011 states that Pakistan claimed 3 Indian soldiers were killed. The evidence does not provide a clear answer to the question of who killed whom, and it is unclear whether the reported fatalities were due to combat or other causes. The conflict has been marked by a series of ceasefire violations and skirmishes, but the evidence does not provide a clear picture of the underlying causes of these incidents. The conflict has also been influenced by regional and international politics, but the evidence does not provide a clear picture of the role of these factors. In conclusion, the evidence does not provide a clear answer to the question of who killed whom in the conflict between India and Pakistan, and it is unclear whether the reported fatalities were due to combat or other causes. The conflict has been marked by a series of military incidents and fatalities, but the evidence does not provide a clear picture of the underlying causes of these incidents. The conflict has also been influenced by regional and international politics, but the evidence does not provide a clear picture of the role of these factors. The Pakistan Army has denied killing 15 Indian soldiers, terming India's claim as 'propaganda'. The conflict has been marked by a series of ceasefire violations and skirmishes, but the evidence does not provide a clear picture of the underlying causes of these incidents. The conflict has also been influenced by regional and international politics, but the evidence does not provide a clear picture of the role of these factors. The conflict between India and Pakistan has been marked by a series of military incidents and fatalities, with both countries accusing each other of aggression. However, the evidence does not provide a clear picture of the number of fatalities or the circumstances surrounding these incidents. According to the UCDP GED, there have been reports of fatalities on both sides, but the exact numbers are not provided. The Agence France Presse report from 2001 states that Indian troops claimed 16 Pakistani soldiers were killed, while the
+
+================================================================================
+CLAIM VERIFICATION
+================================================================================
+- Claim: The Pakistani Army has denied killing 15 Indian soldiers.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-366298::chunk-0000, ucdp-ged-369889::chunk-0000
+- Claim: India's claim of 15 Indian soldiers being killed by Pakistani forces is not supported by the provided evidence.
+  Status: UNSUPPORTED
+  Support score: 0.00
+  Verified: False
+  Supporting evidence: ucdp-ged-366298::chunk-0000, ucdp-ged-369889::chunk-0000
+- Claim: The evidence suggests that there have been various incidents of military clashes and fatalities on both sides, but the exact number of Indian soldiers killed by Pakistani forces is not confirmed.
+  Status: UNSUPPORTED
+  Support score: 0.00
+  Verified: False
+  Supporting evidence: ucdp-ged-369889::chunk-0000, ucdp-ged-58794::chunk-0000
+
+================================================================================
+CONTRADICTIONS
+================================================================================
+- ucdp-ged-372180::chunk-0000 vs ucdp-ged-366298::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-366298::chunk-0000 vs ucdp-dyadic-422-1994::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-dyadic-422-1994::chunk-0000 vs ucdp-ged-369889::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-369889::chunk-0000 vs ucdp-ged-55527::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-55527::chunk-0000 vs ucdp-ged-59724::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-59724::chunk-0000 vs ucdp-ged-368211::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+
+================================================================================
+CONFIDENCE
+================================================================================
+Final score: 62.85/100
+Confidence level: MEDIUM
+Relevance: 41.35
+Agreement: 100.00
+Freshness: 49.00
+Source reliability: 92.50
+Claim support: 33.33
+
+================================================================================
+CITATIONS
+================================================================================
+- ucdp-ged-372180::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-366298::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-dyadic-422-1994::chunk-0000: UCDP Dyadic
+  Title: India, Pakistan
+- ucdp-ged-369889::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-55527::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-59724::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-368211::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-58794::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-59689::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- ucdp-ged-108867::chunk-0000: UCDP GED
+  Title: India - Pakistan
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0051: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0888: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0903: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0315: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0020: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0009: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0119: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0008: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0402: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+
+================================================================================
+ANALYSIS COMPLETE
+================================================================================
