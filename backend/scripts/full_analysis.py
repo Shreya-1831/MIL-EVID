@@ -53,8 +53,8 @@ def main() -> None:
         model_name=settings.reranker_model,
     )
 
-    # print("[3/4] Initializing evidence context and Llama 3.2 3B...")
-    print("[3/4] Initializing evidence context and Llama 3.1 8B...")
+    print("[3/4] Initializing evidence context and Llama 3.2 3B...")
+    # print("[3/4] Initializing evidence context and Llama 3.1 8B...")
 
     context_builder = EvidenceContextBuilder(
         chunk_store_dir=Path(settings.chunk_store_dir),

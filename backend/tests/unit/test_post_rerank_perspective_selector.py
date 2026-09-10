@@ -28,55 +28,77 @@ def make_evidence(
     )
 
 
-def test_selects_proportionally_by_source() -> None:
+def test_selects_up_to_five_evidence_items_per_source() -> None:
     selector = PostRerankPerspectiveSelector()
+
     evidence = (
         make_evidence("military-1", Perspective.MILITARY, 0.99, source="military"),
         make_evidence("military-2", Perspective.MILITARY, 0.98, source="military"),
+        make_evidence("military-3", Perspective.MILITARY, 0.97, source="military"),
+        make_evidence("military-4", Perspective.MILITARY, 0.96, source="military"),
+        make_evidence("military-5", Perspective.MILITARY, 0.95, source="military"),
+        make_evidence("military-6", Perspective.MILITARY, 0.94, source="military"),
         make_evidence("legal-1", Perspective.LEGAL, 0.50, source="legal"),
-        make_evidence("historical-1", Perspective.HISTORICAL, 0.40, source="historical"),
-    )
-
-    result = selector.select(
-        query="Assess military tensions from multiple perspectives.",
-        evidence=evidence,
-        max_evidence=3,
-    )
-
-    assert len(result) == 3
-
-    selected_ids = {
-        item.evidence_id for item in result
-    }
-
-    assert "military-1" in selected_ids
-    assert "military-2" not in selected_ids
-    assert len(selected_ids.intersection({"legal-1", "historical-1"})) == 2
-
-
-def test_fills_remaining_slots_by_reranker_order() -> None:
-    selector = PostRerankPerspectiveSelector()
-    evidence = (
-        make_evidence("military-1", Perspective.MILITARY, 0.99, source="military"),
-        make_evidence("military-2", Perspective.MILITARY, 0.98, source="military"),
-        make_evidence("legal-1", Perspective.LEGAL, 0.50, source="legal"),
+        make_evidence("legal-2", Perspective.LEGAL, 0.49, source="legal"),
         make_evidence("historical-1", Perspective.HISTORICAL, 0.40, source="historical"),
     )
 
     result = selector.select(
         query="Assess military, legal, and historical perspectives.",
         evidence=evidence,
-        max_evidence=4,
+        max_evidence=20,
     )
 
-    assert len(result) == 4
+    selected_ids = [item.evidence_id for item in result]
+
+    assert len(result) == 8
+
+    assert selected_ids == [
+        "military-1",
+        "military-2",
+        "military-3",
+        "military-4",
+        "military-5",
+        "legal-1",
+        "legal-2",
+        "historical-1",
+    ]
+
+    assert "military-6" not in selected_ids
+
+
+def test_respects_final_evidence_budget() -> None:
+    selector = PostRerankPerspectiveSelector()
+
+    evidence = (
+        make_evidence("military-1", Perspective.MILITARY, 0.99, source="military"),
+        make_evidence("military-2", Perspective.MILITARY, 0.98, source="military"),
+        make_evidence("military-3", Perspective.MILITARY, 0.97, source="military"),
+        make_evidence("military-4", Perspective.MILITARY, 0.96, source="military"),
+        make_evidence("military-5", Perspective.MILITARY, 0.95, source="military"),
+        make_evidence("legal-1", Perspective.LEGAL, 0.90, source="legal"),
+        make_evidence("legal-2", Perspective.LEGAL, 0.89, source="legal"),
+    )
+
+    result = selector.select(
+        query="Assess military and legal developments.",
+        evidence=evidence,
+        max_evidence=5,
+    )
+
+    assert len(result) == 5
     assert [item.evidence_id for item in result] == [
-        "military-1", "military-2", "legal-1", "historical-1"
+        "military-1",
+        "military-2",
+        "military-3",
+        "military-4",
+        "military-5",
     ]
 
 
 def test_does_not_duplicate_evidence() -> None:
     selector = PostRerankPerspectiveSelector()
+
     evidence = (
         make_evidence("military-1", Perspective.MILITARY, 0.99),
         make_evidence("legal-1", Perspective.LEGAL, 0.80),
@@ -96,6 +118,7 @@ def test_does_not_duplicate_evidence() -> None:
 
 def test_single_perspective_preserves_reranker_order() -> None:
     selector = PostRerankPerspectiveSelector()
+
     evidence = (
         make_evidence("military-1", Perspective.MILITARY, 0.99),
         make_evidence("military-2", Perspective.MILITARY, 0.80),
@@ -109,11 +132,12 @@ def test_single_perspective_preserves_reranker_order() -> None:
     )
 
     assert [item.evidence_id for item in result] == [
-        "military-1", "military-2"
+        "military-1",
+        "military-2",
     ]
 
 
-def test_avoids_highly_redundant_evidence_within_source() -> None:
+def test_allows_redundant_evidence_within_source() -> None:
     selector = PostRerankPerspectiveSelector()
 
     evidence = (
@@ -148,12 +172,10 @@ def test_avoids_highly_redundant_evidence_within_source() -> None:
 
     selected_ids = [item.evidence_id for item in result]
 
-    assert "legal-1" in selected_ids
-    assert "legal-3" in selected_ids
-    assert "legal-2" not in selected_ids
+    assert selected_ids == ["legal-1", "legal-2"]
 
 
-def test_redundancy_filter_does_not_reduce_requested_budget() -> None:
+def test_does_not_reduce_available_evidence_below_source_limit() -> None:
     selector = PostRerankPerspectiveSelector()
 
     evidence = (
@@ -190,7 +212,7 @@ def test_redundancy_filter_does_not_reduce_requested_budget() -> None:
     result = selector.select(
         query="Assess military and legal developments.",
         evidence=evidence,
-        max_evidence=4,
+        max_evidence=20,
     )
 
     assert len(result) == 4
@@ -198,9 +220,15 @@ def test_redundancy_filter_does_not_reduce_requested_budget() -> None:
     ids = [item.evidence_id for item in result]
 
     assert len(ids) == len(set(ids))
+    assert ids == [
+        "legal-1",
+        "legal-2",
+        "military-1",
+        "historical-1",
+    ]
 
 
-def test_preserves_cross_encoder_order_after_diversity_selection() -> None:
+def test_preserves_cross_encoder_order_after_source_selection() -> None:
     selector = PostRerankPerspectiveSelector()
 
     evidence = (
