@@ -13,9 +13,19 @@ from app.modules.analysis.context_builder import EvidenceContextBuilder
 from app.modules.analysis.contradiction_detector import ContradictionDetector
 from app.modules.analysis.evidence_guard import EvidenceConsistencyGuard
 from app.modules.analysis.llm_client import OllamaClient
-from app.modules.analysis.perspective_selector import PerspectiveAwareCandidateSelector
-from app.modules.analysis.post_rerank_perspective_selector import PostRerankPerspectiveSelector
+from app.modules.analysis.perspective_selector import (
+    PerspectiveAwareCandidateSelector,
+)
+from app.modules.analysis.post_rerank_perspective_selector import (
+    PostRerankPerspectiveSelector,
+)
 from app.modules.retrieval.hybrid_retriever import HybridRetriever
+from app.modules.retrieval.perspective_query_builder import (
+    PerspectiveQueryBuilder,
+)
+from app.modules.retrieval.perspective_retriever import (
+    PerspectiveAwareRetriever,
+)
 from app.modules.retrieval.reranker import CrossEncoderReranker
 from app.services.analysis_service import AnalysisService
 
@@ -28,6 +38,7 @@ def main() -> None:
     print("=" * 80)
 
     query = input("\nEnter your military situation query:\n> ").strip()
+
     if not query:
         print("Query cannot be empty.")
         return
@@ -35,16 +46,26 @@ def main() -> None:
     started = time.perf_counter()
 
     print("\n[1/4] Loading retrieval indexes...")
+
     retriever = HybridRetriever.from_index_dirs(
         bm25_index_dir=Path(settings.bm25_index_dir),
         faiss_index_dir=Path(settings.faiss_index_dir),
         rrf_k=settings.rrf_k,
     )
 
+    perspective_retriever = PerspectiveAwareRetriever(
+        retriever=retriever,
+        query_builder=PerspectiveQueryBuilder(),
+    )
+
     print("[2/4] Loading cross-encoder reranker...")
-    reranker = CrossEncoderReranker(model_name=settings.reranker_model)
+
+    reranker = CrossEncoderReranker(
+        model_name=settings.reranker_model,
+    )
 
     print("[3/4] Initializing evidence context and Ollama...")
+
     context_builder = EvidenceContextBuilder(
         chunk_store_dir=Path(settings.chunk_store_dir),
     )
@@ -57,14 +78,24 @@ def main() -> None:
         keep_alive=settings.ollama_keep_alive,
     )
 
-    analyzer = EvidenceAnalyzer(llm_client=llm_client)
+    analyzer = EvidenceAnalyzer(
+        llm_client=llm_client,
+    )
+
     evidence_guard = EvidenceConsistencyGuard()
-    contradiction_detector = ContradictionDetector(llm_client=llm_client)
-    claim_verifier = ClaimVerifier(llm_client=llm_client)
+
+    contradiction_detector = ContradictionDetector(
+        llm_client=llm_client,
+    )
+
+    claim_verifier = ClaimVerifier(
+        llm_client=llm_client,
+    )
+
     confidence_scorer = ConfidenceScorer()
 
     service = AnalysisService(
-        retriever=retriever,
+        perspective_retriever=perspective_retriever,
         reranker=reranker,
         context_builder=context_builder,
         analyzer=analyzer,
@@ -78,6 +109,7 @@ def main() -> None:
     )
 
     print("[4/4] Running optimized analysis...")
+
     result = service.analyze(
         query=query,
         retrieval_top_k=settings.bm25_top_k,
@@ -102,6 +134,7 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("CLAIM VERIFICATION")
     print("=" * 80)
+
     if result.claim_verification:
         for claim in result.claim_verification:
             print(f"- Claim: {claim.claim}")
@@ -122,6 +155,7 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("CONTRADICTIONS")
     print("=" * 80)
+
     if result.contradictions:
         for contradiction in result.contradictions:
             print(
@@ -138,28 +172,40 @@ def main() -> None:
     print("CONFIDENCE")
     print("=" * 80)
     print(f"Final score: {result.confidence.final_score:.2f}/100")
-    print(f"Confidence level: {result.confidence.confidence_level.value.upper()}")
+    print(
+        "Confidence level: "
+        f"{result.confidence.confidence_level.value.upper()}"
+    )
     print(f"Relevance: {result.confidence.relevance_score:.2f}")
     print(f"Agreement: {result.confidence.agreement_score:.2f}")
     print(f"Freshness: {result.confidence.freshness_score:.2f}")
-    print(f"Source reliability: {result.confidence.source_reliability_score:.2f}")
+    print(
+        "Source reliability: "
+        f"{result.confidence.source_reliability_score:.2f}"
+    )
     print(f"Claim support: {result.confidence.claim_support_score:.2f}")
 
     print("\n" + "=" * 80)
     print("CITATIONS")
     print("=" * 80)
+
     if result.citations:
         for citation in result.citations:
             print(f"- {citation.evidence_id}: {citation.source}")
+
             if citation.title:
                 print(f"  Title: {citation.title}")
+
             if citation.url:
                 print(f"  URL: {citation.url}")
     else:
         print("No citations available.")
 
     print("\n" + "=" * 80)
-    print(f"ANALYSIS COMPLETE — total wall time: {time.perf_counter() - started:.2f}s")
+    print(
+        "ANALYSIS COMPLETE — total wall time: "
+        f"{time.perf_counter() - started:.2f}s"
+    )
     print("=" * 80)
 
 

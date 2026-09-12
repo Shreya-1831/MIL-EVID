@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
+from app.domain.models.evidence import EvidenceDocument
 from app.modules.retrieval.hybrid_retriever import HybridSearchResult
 
 
@@ -18,107 +19,31 @@ class PerspectiveCandidateSelection:
 
 
 class PerspectiveAwareCandidateSelector:
-    """Preserve relevant multi-perspective candidates before reranking.
-
-    The selector does not replace the cross-encoder. It only prevents
-    potentially useful perspective-specific evidence from disappearing
-    before cross-encoder scoring.
-
-    Selection is query-aware and does not enforce a fixed number of
-    military/legal/historical documents.
-    """
+    """Preserve relevant multi-perspective candidates before reranking."""
 
     _PERSPECTIVE_KEYWORDS = {
         "military": {
-            "military",
-            "attack",
-            "attacks",
-            "armed",
-            "force",
-            "forces",
-            "troops",
-            "combat",
-            "fighting",
-            "clash",
-            "clashes",
-            "battle",
-            "offensive",
-            "defensive",
-            "defense",
-            "defence",
-            "escalation",
-            "operation",
-            "operations",
-            "weapon",
-            "weapons",
-            "artillery",
-            "shelling",
-            "airstrike",
-            "airstrikes",
-            "missile",
-            "missiles",
+            "military", "attack", "attacks", "armed", "force", "forces",
+            "troops", "combat", "fighting", "clash", "clashes", "battle",
+            "offensive", "defensive", "defense", "defence", "escalation",
+            "operation", "operations", "weapon", "weapons", "artillery",
+            "shelling", "airstrike", "airstrikes", "missile", "missiles",
             "casualties",
         },
         "legal": {
-            "legal",
-            "law",
-            "lawful",
-            "unlawful",
-            "legality",
-            "ihl",
-            "international",
-            "humanitarian",
-            "humanitarian",
-            "civilian",
-            "civilians",
-            "protection",
-            "protected",
-            "distinction",
-            "proportionality",
-            "precautions",
-            "targeting",
-            "target",
-            "targets",
-            "war crime",
-            "war crimes",
-            "treaty",
-            "treaties",
-            "convention",
-            "conventions",
+            "legal", "law", "lawful", "unlawful", "legality", "ihl",
+            "international", "humanitarian", "civilian", "civilians",
+            "protection", "protected", "distinction", "proportionality",
+            "precautions", "targeting", "target", "targets", "war crime",
+            "war crimes", "treaty", "treaties", "convention", "conventions",
             "rights",
         },
         "historical": {
-            "historical",
-            "history",
-            "past",
-            "previous",
-            "prior",
-            "background",
-            "origins",
-            "precedent",
-            "precedents",
-            "timeline",
-            "evolution",
-            "escalation",
-            "conflict",
-            "conflicts",
-            "ceasefire",
-            "peace",
-            "agreement",
-            "agreements",
-            "settlement",
-            "settlements",
+            "historical", "history", "past", "previous", "prior", "background",
+            "origins", "precedent", "precedents", "timeline", "evolution",
+            "escalation", "conflict", "conflicts", "ceasefire", "peace",
+            "agreement", "agreements", "settlement", "settlements",
         },
-    }
-
-    _SOURCE_PERSPECTIVES = {
-        "ICRC Customary IHL": {"legal"},
-        "ICRC IHL Treaty": {"legal"},
-        "UN Peacemaker": {"historical"},
-        "UCDP Dyadic": {"historical", "military"},
-        "UCDP GED": {"historical", "military"},
-        "SIPRI Arms Transfers Database": {"military", "historical"},
-        "ACLED": {"military", "historical"},
     }
 
     def __init__(
@@ -145,21 +70,10 @@ class PerspectiveAwareCandidateSelector:
         *,
         query: str,
         candidates: Sequence[HybridSearchResult],
+        evidence_by_id: Mapping[str, EvidenceDocument] | None = None,
     ) -> PerspectiveCandidateSelection:
-        """Select a perspective-aware candidate pool.
-
-        Candidates remain ordered primarily by their original RRF ranking.
-        Perspective-specific candidates are preserved before filling the
-        remaining slots with the strongest global candidates.
-        """
-
-        if not query or not query.strip():
-            return PerspectiveCandidateSelection(
-                candidates=tuple(),
-                requested_perspectives=tuple(),
-            )
-
-        if not candidates:
+        """Select relevant candidates for the requested perspectives."""
+        if not query or not query.strip() or not candidates:
             return PerspectiveCandidateSelection(
                 candidates=tuple(),
                 requested_perspectives=tuple(),
@@ -167,21 +81,17 @@ class PerspectiveAwareCandidateSelector:
 
         requested = self._detect_requested_perspectives(query)
 
-        # If the query does not explicitly indicate a perspective,
-        # preserve the original hybrid candidate ordering.
         if not requested:
             return PerspectiveCandidateSelection(
                 candidates=tuple(candidates[: self._max_candidates]),
                 requested_perspectives=tuple(),
             )
 
+        evidence_by_id = evidence_by_id or {}
+
         selected: list[HybridSearchResult] = []
         selected_ids: set[str] = set()
 
-        # Preserve strong candidates relevant to each requested perspective.
-        #
-        # We use a relevance threshold based on query/perspective keyword
-        # overlap rather than forcing a fixed number of documents.
         for perspective in requested:
             perspective_candidates = [
                 candidate
@@ -190,6 +100,7 @@ class PerspectiveAwareCandidateSelector:
                 and self._candidate_matches_perspective(
                     candidate=candidate,
                     perspective=perspective,
+                    evidence_by_id=evidence_by_id,
                 )
             ]
 
@@ -204,31 +115,6 @@ class PerspectiveAwareCandidateSelector:
 
             if len(selected) >= self._max_candidates:
                 break
-
-        # Fill remaining slots with the strongest original RRF candidates.
-        for candidate in candidates:
-            if len(selected) >= self._max_candidates:
-                break
-
-            if candidate.chunk_id in selected_ids:
-                continue
-
-            selected.append(candidate)
-            selected_ids.add(candidate.chunk_id)
-
-        # Restore original hybrid ordering. The selector should preserve
-        # candidates, not invent a new ranking before the cross-encoder.
-        candidate_order = {
-            candidate.chunk_id: index
-            for index, candidate in enumerate(candidates)
-        }
-
-        selected.sort(
-            key=lambda candidate: candidate_order.get(
-                candidate.chunk_id,
-                len(candidates),
-            )
-        )
 
         return PerspectiveCandidateSelection(
             candidates=tuple(selected),
@@ -265,73 +151,77 @@ class PerspectiveAwareCandidateSelector:
         *,
         candidate: HybridSearchResult,
         perspective: str,
+        evidence_by_id: Mapping[str, EvidenceDocument],
     ) -> bool:
-        """Determine whether a candidate is associated with a perspective."""
+        """Determine whether evidence supports the requested perspective."""
+        evidence = evidence_by_id.get(candidate.chunk_id)
 
-        # HybridSearchResult intentionally contains retrieval metadata,
-        # not source text. Therefore use the chunk ID/source naming convention
-        # available in the retrieval candidate when possible.
-        candidate_id = candidate.chunk_id.lower()
+        if evidence is not None:
+            if evidence.perspective is not None:
+                if evidence.perspective.value == perspective:
+                    return True
 
-        source_perspectives = self._infer_source_perspectives(
-            candidate_id
+            text = " ".join(
+                filter(
+                    None,
+                    (
+                        evidence.title,
+                        evidence.text,
+                        evidence.source,
+                    ),
+                )
+            ).lower()
+
+            keywords = self._PERSPECTIVE_KEYWORDS[perspective]
+
+            if any(
+                self._contains_keyword(text, keyword)
+                for keyword in keywords
+            ):
+                return True
+
+        return self._candidate_id_matches_perspective(
+            candidate.chunk_id,
+            perspective,
         )
 
-        if perspective in source_perspectives:
-            return True
-
-        # Fallback based on chunk ID vocabulary.
-        keywords = self._PERSPECTIVE_KEYWORDS[perspective]
-
-        return any(
-            self._contains_keyword(candidate_id, keyword)
-            for keyword in keywords
-        )
-
-    def _infer_source_perspectives(
+    def _candidate_id_matches_perspective(
         self,
         chunk_id: str,
-    ) -> set[str]:
-        """Infer likely perspectives from the chunk ID/source prefix."""
+        perspective: str,
+    ) -> bool:
+        """Legacy fallback for candidates without resolvable metadata."""
 
         normalized = chunk_id.lower()
 
         if normalized.startswith("icrc::"):
-            if "treat" in normalized or "treaty" in normalized:
-                return {"legal"}
-
-            return {"legal"}
+            return perspective == "legal"
 
         if normalized.startswith("un_peacemaker::"):
-            return {"historical"}
+            return perspective == "historical"
 
-        if normalized.startswith("ucdp-ged-"):
-            return {"historical", "military"}
+        if normalized.startswith(("ucdp-ged-", "ucdp-dyadic-")):
+            return perspective in {"historical", "military"}
 
-        if normalized.startswith("ucdp-dyadic-"):
-            return {"historical", "military"}
-
-        if normalized.startswith("sipri"):
-            return {"military", "historical"}
+        if normalized.startswith("sipri-"):
+            return perspective in {"historical", "military"}
 
         if normalized.startswith("acled"):
-            return {"military", "historical"}
+            return perspective in {"historical", "military"}
 
-        return set()
+        keywords = self._PERSPECTIVE_KEYWORDS[perspective]
+
+        return any(
+            self._contains_keyword(normalized, keyword)
+            for keyword in keywords
+        )
 
     @staticmethod
     def _normalize(text: str) -> str:
-        """Normalize text for keyword matching."""
-
         return " ".join(text.lower().split())
 
     @staticmethod
-    def _contains_keyword(
-        text: str,
-        keyword: str,
-    ) -> bool:
-        """Return whether keyword occurs as a complete lexical unit."""
-
+    def _contains_keyword(text: str, keyword: str) -> bool:
         normalized_keyword = " ".join(keyword.lower().split())
 
         if " " in normalized_keyword:

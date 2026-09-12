@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 
+from app.domain.enums import Perspective
 from app.domain.models.analysis import Citation, EvidenceContext, FinalAnalysisResponse
 from app.domain.models.query import QueryClassification
 from app.modules.analysis.analyzer import EvidenceAnalyzer
@@ -15,8 +16,9 @@ from app.modules.analysis.contradiction_detector import ContradictionDetector
 from app.modules.analysis.evidence_guard import EvidenceConsistencyGuard
 from app.modules.analysis.perspective_selector import PerspectiveAwareCandidateSelector
 from app.modules.analysis.post_rerank_perspective_selector import PostRerankPerspectiveSelector
-from app.modules.retrieval.hybrid_retriever import HybridRetriever
+from app.modules.retrieval.perspective_retriever import PerspectiveAwareRetriever
 from app.modules.retrieval.reranker import CrossEncoderReranker
+from app.repositories.chunk_file_store import get_chunks_by_id
 
 logger = logging.getLogger("mil_evid")
 
@@ -27,7 +29,7 @@ class AnalysisService:
     def __init__(
         self,
         *,
-        retriever: HybridRetriever,
+        perspective_retriever: PerspectiveAwareRetriever,
         reranker: CrossEncoderReranker,
         perspective_selector: PerspectiveAwareCandidateSelector,
         post_rerank_perspective_selector: PostRerankPerspectiveSelector,
@@ -39,7 +41,7 @@ class AnalysisService:
         claim_verifier: ClaimVerifier,
         rerank_candidate_k: int = 15,
     ) -> None:
-        self._retriever = retriever
+        self._perspective_retriever = perspective_retriever
         self._reranker = reranker
         self._context_builder = context_builder
         self._analyzer = analyzer
@@ -61,29 +63,63 @@ class AnalysisService:
         """Retrieve, rerank, select, and consistency-check compact evidence."""
         started = time.perf_counter()
 
-        hybrid_results = self._retriever.search(query, top_k=retrieval_top_k)
+        requested_perspectives = (
+            Perspective.MILITARY,
+            Perspective.LEGAL,
+            Perspective.HISTORICAL,
+        )
+
+        hybrid_results = self._perspective_retriever.search(
+            query=query,
+            perspectives=requested_perspectives,
+            top_k=retrieval_top_k,
+        )
+
         retrieval_elapsed = time.perf_counter() - started
 
         if not hybrid_results:
-            return self._context_builder.build(query=query, reranked_results=[])
+            return self._context_builder.build(
+                query=query,
+                reranked_results=[],
+            )
+
+        evidence_by_id = get_chunks_by_id(
+            [result.chunk_id for result in hybrid_results],
+            chunk_store_dir=self._context_builder.chunk_store_dir,
+        )
 
         selection = self._perspective_selector.select(
             query=query,
             candidates=hybrid_results,
+            evidence_by_id=evidence_by_id,
         )
         candidate_results = selection.candidates
 
-        # The selector preserves perspective coverage before this cap.
-        # We therefore cap CE work only after perspective preservation.
+        logger.info(
+            "Perspective candidates: requested=%s sources=%s",
+            selection.requested_perspectives,
+            [
+                (
+                    evidence_by_id[candidate.chunk_id].source,
+                    evidence_by_id[candidate.chunk_id].perspective,
+                    candidate.chunk_id,
+                )
+                for candidate in candidate_results
+                if candidate.chunk_id in evidence_by_id
+            ],
+        )
+
         rerank_candidates = candidate_results[: self._rerank_candidate_k]
 
         rerank_started = time.perf_counter()
+
         reranked_results = self._reranker.rerank(
             query=query,
             candidates=rerank_candidates,
             chunk_texts=self._resolve_chunk_texts(rerank_candidates),
             top_k=len(rerank_candidates),
         )
+
         rerank_elapsed = time.perf_counter() - rerank_started
 
         context = self._context_builder.build(
@@ -107,21 +143,25 @@ class AnalysisService:
         )
 
         direct_ids = {
-            evidence.evidence_id for evidence in guard_result.direct_evidence
+            evidence.evidence_id
+            for evidence in guard_result.direct_evidence
         }
 
         direct_evidence = tuple(
-            evidence for evidence in filtered_evidence
+            evidence
+            for evidence in filtered_evidence
             if evidence.evidence_id in direct_ids
         )
+
         contextual_evidence = tuple(
-            evidence for evidence in filtered_evidence
+            evidence
+            for evidence in filtered_evidence
             if evidence.evidence_id not in direct_ids
         )
 
         logger.info(
-            "Pipeline retrieval=%.3fs rerank=%.3fs hybrid=%d candidates=%d "
-            "reranked=%d selected=%d direct=%d contextual=%d",
+            "Pipeline retrieval=%.3fs rerank=%.3fs hybrid=%d "
+            "candidates=%d reranked=%d selected=%d direct=%d contextual=%d",
             retrieval_elapsed,
             rerank_elapsed,
             len(hybrid_results),
@@ -136,10 +176,12 @@ class AnalysisService:
             query=context.query,
             evidence=filtered_evidence,
             direct_evidence_ids=tuple(
-                evidence.evidence_id for evidence in direct_evidence
+                evidence.evidence_id
+                for evidence in direct_evidence
             ),
             contextual_evidence_ids=tuple(
-                evidence.evidence_id for evidence in contextual_evidence
+                evidence.evidence_id
+                for evidence in contextual_evidence
             ),
         )
 
@@ -160,7 +202,11 @@ class AnalysisService:
         )
 
         analysis_started = time.perf_counter()
-        military, legal, historical = self._analyzer.analyze(context=context)
+
+        military, legal, historical = self._analyzer.analyze(
+            context=context,
+        )
+
         analysis_elapsed = time.perf_counter() - analysis_started
 
         claims = self._deduplicate_claims(
@@ -168,16 +214,20 @@ class AnalysisService:
         )
 
         verification_started = time.perf_counter()
+
         claim_verification = self._claim_verifier.verify(
             claims=claims,
             evidence=context.evidence,
         )
+
         verification_elapsed = time.perf_counter() - verification_started
 
         contradiction_started = time.perf_counter()
+
         contradictions = self._contradiction_detector.detect(
             evidence=context.evidence,
         )
+
         contradiction_elapsed = time.perf_counter() - contradiction_started
 
         confidence = self._confidence_scorer.score(
@@ -218,21 +268,32 @@ class AnalysisService:
         )
 
     @staticmethod
-    def _deduplicate_claims(claims: tuple[str, ...]) -> tuple[str, ...]:
+    def _deduplicate_claims(
+        claims: tuple[str, ...],
+    ) -> tuple[str, ...]:
         seen: set[str] = set()
         unique_claims: list[str] = []
 
         for claim in claims:
-            normalized = " ".join(claim.strip().lower().split())
+            normalized = " ".join(
+                claim.strip().lower().split()
+            )
+
             if not normalized or normalized in seen:
                 continue
+
             seen.add(normalized)
             unique_claims.append(claim.strip())
 
         return tuple(unique_claims)
 
     @staticmethod
-    def _collect_citations(*, military, legal, historical) -> tuple[Citation, ...]:
+    def _collect_citations(
+        *,
+        military,
+        legal,
+        historical,
+    ) -> tuple[Citation, ...]:
         citations: list[Citation] = []
         seen: set[str] = set()
 
@@ -240,16 +301,22 @@ class AnalysisService:
             for citation in result.citations:
                 if citation.evidence_id in seen:
                     continue
+
                 seen.add(citation.evidence_id)
                 citations.append(citation)
 
         return tuple(citations)
 
-    def _resolve_chunk_texts(self, results) -> dict[str, str]:
-        from app.repositories.chunk_file_store import get_chunks_by_id
-
+    def _resolve_chunk_texts(
+        self,
+        results,
+    ) -> dict[str, str]:
         chunks = get_chunks_by_id(
             [result.chunk_id for result in results],
             chunk_store_dir=self._context_builder.chunk_store_dir,
         )
-        return {chunk_id: chunk.text for chunk_id, chunk in chunks.items()}
+
+        return {
+            chunk_id: chunk.text
+            for chunk_id, chunk in chunks.items()
+        }
