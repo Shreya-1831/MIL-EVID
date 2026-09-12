@@ -39,7 +39,9 @@ class ClaimVerifier:
 
         if not evidence:
             return tuple(
-                self._unsupported_result(claim.strip())
+                self._unsupported_result(
+                    self._sanitize_claim(claim.strip())
+                )
                 for claim in claims
             )
 
@@ -47,10 +49,15 @@ class ClaimVerifier:
             tuple[int, str, tuple[AnalysisEvidence, ...]] | None
         ] = []
 
-        for index, raw_claim in enumerate(claims, start=1):
-            claim = raw_claim.strip()
+        deterministic_results: dict[
+            int,
+            ClaimVerificationResult,
+        ] = {}
 
-            if not claim or self._is_malformed_temporal_claim(claim):
+        for index, raw_claim in enumerate(claims, start=1):
+            claim = self._sanitize_claim(raw_claim.strip())
+
+            if not claim:
                 prepared.append(None)
                 continue
 
@@ -58,6 +65,16 @@ class ClaimVerifier:
                 claim=claim,
                 evidence=evidence,
             )
+
+            deterministic_result = self._verify_structured_ucdp_claim(
+                claim=claim,
+                evidence=relevant,
+            )
+
+            if deterministic_result is not None:
+                deterministic_results[index] = deterministic_result
+                prepared.append(None)
+                continue
 
             prepared.append(
                 (
@@ -75,7 +92,9 @@ class ClaimVerifier:
 
         if not valid_items:
             return tuple(
-                self._unsupported_result(claim.strip())
+                self._unsupported_result(
+                    self._sanitize_claim(claim.strip())
+                )
                 for claim in claims
             )
 
@@ -89,18 +108,18 @@ class ClaimVerifier:
         results: list[ClaimVerificationResult] = []
 
         for index, raw_claim in enumerate(claims, start=1):
-            claim = raw_claim.strip()
+            claim = self._sanitize_claim(raw_claim.strip())
 
-            if (
-                not claim
-                or self._is_malformed_temporal_claim(claim)
-            ):
+            if not claim:
                 results.append(
                     self._unsupported_result(claim)
                 )
                 continue
 
-            result = batch_results.get(index)
+            result = deterministic_results.get(index)
+
+            if result is None:
+                result = batch_results.get(index)
 
             if result is None:
                 results.append(
@@ -352,7 +371,243 @@ class ClaimVerifier:
             )
 
         return result_map
+    @classmethod
+    def _verify_structured_ucdp_claim(
+        cls,
+        *,
+        claim: str,
+        evidence: tuple[AnalysisEvidence, ...],
+    ) -> ClaimVerificationResult | None:
+        """Deterministically verify structured UCDP factual claims."""
 
+        if not evidence:
+            return None
+
+        ucdp_evidence = tuple(
+            item
+            for item in evidence
+            if item.source in {
+                "UCDP GED",
+                "UCDP Dyadic",
+            }
+        )
+
+        if not ucdp_evidence:
+            return None
+
+        normalized_claim = cls._normalize_factual_text(claim)
+
+        patterns = (
+            (
+                r"the event involved (.+)",
+                "involved",
+            ),
+            (
+                r"the event occurred in (.+)",
+                "occurred",
+            ),
+            (
+                r"the record reports a best estimate of "
+                r"(\d+(?:\.\d+)?) fatalities",
+                "fatalities",
+            ),
+            (
+                r"the conflict record applies to the year (\d{4})",
+                "year",
+            ),
+            (
+                r"the recorded conflict intensity level was "
+                r"(\d+(?:\.\d+)?)",
+                "intensity",
+            ),
+            (
+                r"the recorded conflict type was "
+                r"(\d+(?:\.\d+)?)",
+                "type",
+            ),
+            (
+                r"the recorded incompatibility category was "
+                r"(\d+(?:\.\d+)?)",
+                "incompatibility",
+            ),
+        )
+
+        matched_value: str | None = None
+        matched_kind: str | None = None
+
+        for pattern, kind in patterns:
+            match = re.fullmatch(
+                pattern,
+                normalized_claim,
+                flags=re.IGNORECASE,
+            )
+
+            if match:
+                matched_value = match.group(1).strip()
+                matched_kind = kind
+                break
+
+        if matched_value is None or matched_kind is None:
+            return None
+
+        supporting_ids: list[str] = []
+
+        for item in ucdp_evidence:
+            evidence_text = cls._normalize_factual_text(
+                " ".join(
+                    [
+                        str(item.title),
+                        str(item.text),
+                    ]
+                )
+            )
+
+            supported = False
+
+            if matched_kind == "involved":
+                claim_value = cls._normalize_factual_text(
+                    matched_value
+                )
+
+                supported = (
+                    claim_value in evidence_text
+                    or cls._actors_match(
+                        claim_value,
+                        evidence_text,
+                    )
+                )
+
+            elif matched_kind == "occurred":
+                claim_value = cls._normalize_factual_text(
+                    matched_value
+                )
+
+                supported = (
+                    claim_value in evidence_text
+                )
+
+            elif matched_kind == "fatalities":
+                supported = bool(
+                    re.search(
+                        rf"best estimate of fatalities\s*:\s*"
+                        rf"{re.escape(matched_value)}\b",
+                        evidence_text,
+                        flags=re.IGNORECASE,
+                    )
+                    or re.search(
+                        rf"fatalities\s*:\s*"
+                        rf"{re.escape(matched_value)}\b",
+                        evidence_text,
+                        flags=re.IGNORECASE,
+                    )
+                )
+
+            elif matched_kind == "year":
+                supported = bool(
+                    re.search(
+                        rf"\b{re.escape(matched_value)}\b",
+                        evidence_text,
+                    )
+                    and (
+                        "record applies to the year"
+                        in evidence_text
+                        or "year" in evidence_text
+                    )
+                )
+
+            elif matched_kind == "intensity":
+                supported = bool(
+                    re.search(
+                        rf"conflict intensity level was\s*"
+                        rf"{re.escape(matched_value)}\b",
+                        evidence_text,
+                    )
+                )
+
+            elif matched_kind == "type":
+                supported = bool(
+                    re.search(
+                        rf"conflict type was\s*"
+                        rf"{re.escape(matched_value)}\b",
+                        evidence_text,
+                    )
+                )
+
+            elif matched_kind == "incompatibility":
+                supported = bool(
+                    re.search(
+                        rf"incompatibility category was\s*"
+                        rf"{re.escape(matched_value)}\b",
+                        evidence_text,
+                    )
+                )
+
+            if supported:
+                supporting_ids.append(item.evidence_id)
+
+        if not supporting_ids:
+            return None
+
+        return ClaimVerificationResult(
+            claim=claim,
+            supporting_evidence_ids=tuple(
+                dict.fromkeys(supporting_ids)
+            ),
+            support_score=1.0,
+            status=ClaimVerificationStatus.SUPPORTED,
+            verified=True,
+        )
+
+    @staticmethod
+    def _normalize_factual_text(
+        text: str,
+    ) -> str:
+        """Normalize structured factual text for deterministic matching."""
+
+        text = re.sub(
+            r"\b(?:event\s+)?date\s*:\s*"
+            r"(?:00:00\.0|00:00:00\.0|00:00:00)\.?",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        text = re.sub(
+            r"\s+",
+            " ",
+            text,
+        ).strip().lower()
+
+        return text
+
+    @staticmethod
+    def _actors_match(
+        claim_value: str,
+        evidence_text: str,
+    ) -> bool:
+        """Match UCDP actor pairs in structured records."""
+
+        if claim_value in evidence_text:
+            return True
+
+        parts = [
+            part.strip()
+            for part in re.split(
+                r"\s+and\s+",
+                claim_value,
+                flags=re.IGNORECASE,
+            )
+            if part.strip()
+        ]
+
+        if len(parts) != 2:
+            return False
+
+        return all(
+            part in evidence_text
+            for part in parts
+        )
+    
     @staticmethod
     def _unsupported_result(
         claim: str,
@@ -368,23 +623,29 @@ class ClaimVerifier:
         )
 
     @staticmethod
-    def _is_malformed_temporal_claim(
+    def _sanitize_claim(
         claim: str,
-    ) -> bool:
-        """Detect obviously malformed date/time claims."""
+    ) -> str:
+        """Remove malformed temporal fields without rejecting the claim."""
 
-        normalized = claim.lower()
+        if not claim:
+            return ""
 
-        malformed_patterns = (
-            "00:00.0",
-            "00:00:00.0",
-            "00:00:00",
+        cleaned = re.sub(
+            r"\b(?:event\s+)?date\s*:\s*"
+            r"(?:00:00\.0|00:00:00\.0|00:00:00)\.?",
+            "",
+            claim,
+            flags=re.IGNORECASE,
         )
 
-        return any(
-            pattern in normalized
-            for pattern in malformed_patterns
-        )
+        cleaned = re.sub(
+            r"\s{2,}",
+            " ",
+            cleaned,
+        ).strip()
+
+        return cleaned
 
     @classmethod
     def _select_relevant_evidence(

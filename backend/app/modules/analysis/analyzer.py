@@ -219,13 +219,7 @@ class EvidenceAnalyzer:
         context: EvidenceContext,
         perspective: Perspective,
     ) -> tuple[str, tuple[str, ...]]:
-        """
-        Produce a minimal extractive answer when Ollama returns no
-        usable analysis.
-
-        This fallback deliberately does not infer facts. It only reports
-        the supplied evidence and explicitly identifies limitations.
-        """
+        """Produce a conservative extractive fallback."""
 
         evidence = context.evidence
 
@@ -240,35 +234,87 @@ class EvidenceAnalyzer:
         if perspective == Perspective.MILITARY:
             lead = (
                 "From the military perspective, the retrieved evidence "
-                "documents the following conflict-related records:"
+                "documents the following conflict-related facts:"
             )
         elif perspective == Perspective.LEGAL:
             lead = (
                 "From the legal perspective, the retrieved evidence "
-                "provides the following international humanitarian law "
-                "material:"
+                "provides the following applicable legal material:"
             )
         else:
             lead = (
                 "From the historical perspective, the retrieved evidence "
-                "documents the following historical or conflict records:"
+                "documents the following historical or conflict facts:"
             )
 
         statements: list[str] = []
         claims: list[str] = []
 
         for evidence_item in evidence[:4]:
-            text = " ".join(evidence_item.text.split()).strip()
+            text = " ".join(
+                evidence_item.text.split()
+            ).strip()
 
             if not text:
                 continue
 
-            statements.append(
-                f"{evidence_item.source} ({evidence_item.evidence_id}) "
-                f"records: {text}"
+            # Remove malformed UCDP temporal values.
+            cleaned_text = re.sub(
+                r"\b(?:event\s+)?date\s*:\s*"
+                r"(?:00:00\.0|00:00:00\.0|00:00:00)\.?",
+                "",
+                text,
+                flags=re.IGNORECASE,
             )
 
-            claims.append(text)
+            cleaned_text = re.sub(
+                r"\s{2,}",
+                " ",
+                cleaned_text,
+            ).strip()
+
+            if not cleaned_text:
+                continue
+
+            # UCDP records contain structured event fields.
+            # Extract only individual factual propositions.
+            if evidence_item.source in {
+                "UCDP GED",
+                "UCDP Dyadic",
+            }:
+                atomic_claims = (
+                    EvidenceAnalyzer._extract_ucdp_atomic_claims(
+                        cleaned_text
+                    )
+                )
+
+                if not atomic_claims:
+                    atomic_claims = (
+                        EvidenceAnalyzer._extract_atomic_claims(
+                            cleaned_text
+                        )
+                    )
+            else:
+                atomic_claims = (
+                    EvidenceAnalyzer._extract_atomic_claims(
+                        cleaned_text
+                    )
+                )
+
+            for claim in atomic_claims:
+                if (
+                    claim
+                    and not EvidenceAnalyzer._is_non_atomic_claim(
+                        claim
+                    )
+                ):
+                    claims.append(claim)
+
+            statements.append(
+                f"{evidence_item.source} "
+                f"({evidence_item.evidence_id}) records: "
+                f"{cleaned_text}"
+            )
 
         if not statements:
             return (
@@ -294,8 +340,106 @@ class EvidenceAnalyzer:
 
         return (
             analysis,
-            EvidenceAnalyzer._clean_claims(tuple(claims)),
+            EvidenceAnalyzer._clean_claims(
+                tuple(claims)
+            ),
         )
+
+    @staticmethod
+    def _extract_ucdp_atomic_claims(
+        text: str,
+    ) -> tuple[str, ...]:
+        """Extract atomic factual claims from UCDP-style records."""
+
+        claims: list[str] = []
+
+        patterns = (
+            (
+                r"(?:the\s+)?event\s+involved\s+(.+?)(?=\.\s+"
+                r"(?:the\s+)?event\s+occurred|\.\s+event\s+date|"
+                r"\.\s+reported\s+best|\.\s+source\s+record|$)",
+                lambda value: f"The event involved {value}.",
+            ),
+            (
+                r"(?:the\s+)?event\s+occurred\s+(.+?)(?=\.\s+"
+                r"event\s+date|\.\s+reported\s+best|"
+                r"\.\s+source\s+record|$)",
+                lambda value: f"The event occurred in {value}.",
+            ),
+            (
+                r"reported\s+best\s+estimate\s+of\s+fatalities\s*:\s*"
+                r"(\d+(?:\.\d+)?)",
+                lambda value: (
+                    f"The record reports a best estimate of "
+                    f"{value} fatalities."
+                ),
+            ),
+        )
+
+        for pattern, formatter in patterns:
+            match = re.search(
+                pattern,
+                text,
+                flags=re.IGNORECASE,
+            )
+
+            if not match:
+                continue
+
+            value = " ".join(
+                match.group(1).split()
+            ).strip(" ,;.")
+
+            if not value:
+                continue
+
+            claim = formatter(value)
+
+            if not EvidenceAnalyzer._is_non_atomic_claim(
+                claim
+            ):
+                claims.append(claim)
+
+        return tuple(
+            dict.fromkeys(claims)
+        )
+
+    @staticmethod
+    def _extract_atomic_claims(
+        text: str,
+    ) -> tuple[str, ...]:
+        """Extract conservative atomic claims from evidence text."""
+
+        sentences = re.split(
+            r"(?<=[.!?])\s+",
+            text,
+        )
+
+        claims: list[str] = []
+
+        for sentence in sentences:
+            sentence = " ".join(
+                sentence.strip().split()
+            )
+
+            if not sentence:
+                continue
+
+            if len(sentence) < 15:
+                continue
+
+            # Reject obvious record-level aggregation.
+            if EvidenceAnalyzer._is_non_atomic_claim(
+                sentence
+            ):
+                continue
+
+            claims.append(sentence)
+
+            if len(claims) >= 4:
+                break
+
+        return tuple(claims)
 
     def _analyze_perspective(
         self,
@@ -527,6 +671,7 @@ class EvidenceAnalyzer:
             return any(re.search(pattern, text) for pattern in patterns)
 
         return False
+    
     @classmethod
     def _clean_claims(
         cls,
