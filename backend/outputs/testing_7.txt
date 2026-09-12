@@ -1,0 +1,168 @@
+(.venv) PS C:\Users\Windows\Downloads\mil-evid-backend\backend>  python -m scripts.full_analysis
+================================================================================
+MIL-EVID — OPTIMIZED FULL ANALYSIS PIPELINE
+================================================================================
+
+Enter your military situation query:
+> How should the escalation of the Russia–Ukraine conflict be assessed from military, legal, and historical perspectives, particularly regarding attacks on civilian areas, damage to essential infrastructure, civilian protection, and competing claims about responsibility?
+
+[1/4] Loading retrieval indexes...
+[2/4] Loading cross-encoder reranker...
+[3/4] Initializing evidence context and Ollama...
+[4/4] Running optimized analysis...
+2026-09-12 20:28:02 [info     ] embedding_model_loading        model_name=sentence-transformers/all-MiniLM-L6-v2
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: military
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=1.0391, direct=True, id=ucdp-ged-433534::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.9662, direct=True, id=ucdp-ged-447526::chunk-0000
+3. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.4286, direct=True, id=ucdp-ged-448444::chunk-0000
+4. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.0081, direct=True, id=ucdp-dyadic-14117-2025::chunk-0000
+5. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.0974, direct=True, id=ucdp-ged-458991::chunk-0000
+6. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.1871, direct=True, id=ucdp-ged-456962::chunk-0000===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: legal
+1. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.3021, direct=False, id=icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127
+2. source='ICRC IHL Treaty', perspective=<Perspective.LEGAL: 'legal'>, reranker=-3.7316, direct=False, id=icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0119
+3. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.7055, direct=False, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0137
+4. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-4.8048, direct=False, id=icrc::icrc/customary_ihl/rule_11_indiscriminate_attacks.md/rule_11_Practice.pdf::chunk-0042
+5. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-5.7918, direct=False, id=icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0402
+6. source='ICRC Customary IHL', perspective=<Perspective.LEGAL: 'legal'>, reranker=-6.0810, direct=False, id=icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016===============================================
+
+
+========== PERSPECTIVE EVIDENCE DEBUG ==========
+Perspective: historical
+1. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=1.0391, direct=True, id=ucdp-ged-433534::chunk-0000
+2. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.9662, direct=True, id=ucdp-ged-447526::chunk-0000
+3. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.4286, direct=True, id=ucdp-ged-448444::chunk-0000
+4. source='UCDP Dyadic', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=0.0081, direct=True, id=ucdp-dyadic-14117-2025::chunk-0000
+5. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.0974, direct=True, id=ucdp-ged-458991::chunk-0000
+6. source='UCDP GED', perspective=<Perspective.HISTORICAL: 'historical'>, reranker=-0.1871, direct=True, id=ucdp-ged-456962::chunk-0000===============================================
+
+[LLM TIMING] generate_structured: 40.88s
+Rejecting unsupported military analysis synthesis; using evidence-grounded fallback.
+[LLM TIMING] generate_structured: 79.11s
+Query mentions ['ukraine', 'uk', 'russia'] but analysis doesn't
+Analysis specificity check failed: Query mentions ['ukraine', 'uk', 'russia'] but analysis doesn't
+[LLM TIMING] generate_structured: 76.69s
+Rejecting unsupported historical analysis synthesis; using evidence-grounded fallback.
+[LLM TIMING] generate_structured: 30.52s
+[LLM TIMING] generate_structured: 41.76s
+
+================================================================================
+MILITARY ANALYSIS
+================================================================================
+From the military perspective, the retrieved evidence documents the following conflict-related facts:
+- UCDP GED (ucdp-ged-433534::chunk-0000) records: Conflict: Government of Russia (Soviet Union) - Civilians. The event involved Government of Russia (Soviet Union) and Civilians. The event occurred in in the village of Veliky Sambir, Ukraine. Reported best estimate of fatalities: 2. Source record: "Ukrinform: news,2022-03-25,Armed Forces of Ukraine are fighting for the liberation of Trostyanets";"Office of the United Nations High Commissioner for Human Rights,2022-12-07,KILLINGS OF CIVILIANS: SUMMARY EXECUTIONS AND ATTACKS ON INDIVIDUAL CIVILIANS IN KYIV, CHERNIHIV, AND SUMY REGIONS IN THE CONTEXT OF THE RUSSIAN FEDERATION’S ARMED ATTACK AGAINST UKRAINE"
+- UCDP GED (ucdp-ged-447526::chunk-0000) records: Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Donetsk region: Dolyna, Ukraine. Reported best estimate of fatalities: 2. Source record: "Ukrinform,2022-09-15,The enemy continues to hit the civilian infrastructure of Ukraine, in the Kherson region - active hostilities";"AOAV,2022-09-26,Ukraine: AOAV explosive violence data on harm to civilians"
+- UCDP GED (ucdp-ged-448444::chunk-0000) records: Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Not far from the village of Grakovo, Chuguevsky district, Ukraine. Reported best estimate of fatalities: 1. Source record: "AOAV,2022-09-26,Ukraine: AOAV explosive violence data on harm to civilians";"Ukrinform,2022-09-22,OVA summary: under shelling - seven regions, aircraft of the Armed Forces of Ukraine inflicted dozens of strikes on enemy targets"
+- UCDP Dyadic (ucdp-dyadic-14117-2025::chunk-0000) records: The conflict involved Government of Russia (Soviet Union) and Government of Ukraine. The conflict was located in Russia (Soviet Union), Ukraine. The conflict record applies to the year 2025. The recorded conflict intensity level was 2. The recorded conflict type was 2. The recorded incompatibility category was 3.
+
+The supplied evidence does not by itself establish facts that are absent from these records, and no unsupported conclusion is drawn.
+
+================================================================================
+LEGAL ANALYSIS
+================================================================================
+Applicable IHL principles include the principle of distinction (Rule 01: Principle of Distinction), the principle of proportionality (not explicitly mentioned but implied by Rule 15: Precautions), and the prohibition of indiscriminate attacks (Rule 11: Indiscriminate Attacks).
+
+The principle of distinction requires distinguishing between civilians and combatants, as well as between civilian objects and military objectives. The principle of proportionality requires that the harm to civilians and civilian objects be minimized and that the military advantage anticipated from the attack be clearly excessive in relation to the concrete and direct military advantage anticipated.
+
+The prohibition of indiscriminate attacks prohibits attacks that target civilians or civilian objects without discrimination. However, it is unclear whether the supplied evidence establishes that the conflict involves indiscriminate attacks.
+
+The supplied evidence does not establish the extent to which the parties to the conflict have taken precautions to minimize harm to civilians and civilian objects. However, Rule 15: Precautions requires that damage to infrastructure and civilian casualties be avoided or kept to a minimum, and that
+
+================================================================================
+HISTORICAL ANALYSIS
+================================================================================
+From the historical perspective, the retrieved evidence documents the following historical or conflict facts:
+- UCDP GED (ucdp-ged-433534::chunk-0000) records: Conflict: Government of Russia (Soviet Union) - Civilians. The event involved Government of Russia (Soviet Union) and Civilians. The event occurred in in the village of Veliky Sambir, Ukraine. Reported best estimate of fatalities: 2. Source record: "Ukrinform: news,2022-03-25,Armed Forces of Ukraine are fighting for the liberation of Trostyanets";"Office of the United Nations High Commissioner for Human Rights,2022-12-07,KILLINGS OF CIVILIANS: SUMMARY EXECUTIONS AND ATTACKS ON INDIVIDUAL CIVILIANS IN KYIV, CHERNIHIV, AND SUMY REGIONS IN THE CONTEXT OF THE RUSSIAN FEDERATION’S ARMED ATTACK AGAINST UKRAINE"
+- UCDP GED (ucdp-ged-447526::chunk-0000) records: Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Donetsk region: Dolyna, Ukraine. Reported best estimate of fatalities: 2. Source record: "Ukrinform,2022-09-15,The enemy continues to hit the civilian infrastructure of Ukraine, in the Kherson region - active hostilities";"AOAV,2022-09-26,Ukraine: AOAV explosive violence data on harm to civilians"
+- UCDP GED (ucdp-ged-448444::chunk-0000) records: Conflict: Russia - Ukraine. The event involved Government of Russia (Soviet Union) and Government of Ukraine. The event occurred in Not far from the village of Grakovo, Chuguevsky district, Ukraine. Reported best estimate of fatalities: 1. Source record: "AOAV,2022-09-26,Ukraine: AOAV explosive violence data on harm to civilians";"Ukrinform,2022-09-22,OVA summary: under shelling - seven regions, aircraft of the Armed Forces of Ukraine inflicted dozens of strikes on enemy targets"
+- UCDP Dyadic (ucdp-dyadic-14117-2025::chunk-0000) records: The conflict involved Government of Russia (Soviet Union) and Government of Ukraine. The conflict was located in Russia (Soviet Union), Ukraine. The conflict record applies to the year 2025. The recorded conflict intensity level was 2. The recorded conflict type was 2. The recorded incompatibility category was 3.
+
+The supplied evidence does not by itself establish facts that are absent from these records, and no unsupported conclusion is drawn.
+
+================================================================================
+CLAIM VERIFICATION
+================================================================================
+- Claim: The event involved Government of Russia (Soviet Union) and Civilians.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-447526::chunk-0000, ucdp-ged-448444::chunk-0000
+- Claim: The event occurred in in in the village of Veliky Sambir, Ukraine.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-433534::chunk-0000
+- Claim: The record reports a best estimate of 2 fatalities.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-447526::chunk-0000, ucdp-ged-433534::chunk-0000
+- Claim: The event involved Government of Russia (Soviet Union) and Government of Ukraine.
+  Status: SUPPORTED
+  Support score: 1.00
+  Verified: True
+  Supporting evidence: ucdp-ged-456962::chunk-0000, ucdp-ged-458991::chunk-0000
+
+================================================================================
+CONTRADICTIONS
+================================================================================
+- ucdp-ged-433534::chunk-0000 vs ucdp-ged-447526::chunk-0000: entailment (none)
+  The two evidence items describe the same event, but with different locations. The event occurred in Veliky Sambir, Ukraine, and in Donetsk region, Ukraine. The locations are not the same, but the event is the same.
+- ucdp-ged-447526::chunk-0000 vs ucdp-ged-448444::chunk-0000: entailment (none)
+  The two evidence items describe the same event, but with different locations. The event occurred in Dolyna, Ukraine, and Not far from the village of Grakovo, Chuguevsky district, Ukraine. The locations are not the same, but the event is the same.
+- ucdp-ged-448444::chunk-0000 vs ucdp-dyadic-14117-2025::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-dyadic-14117-2025::chunk-0000 vs ucdp-ged-458991::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-458991::chunk-0000 vs ucdp-ged-456962::chunk-0000: neutral (uncertain)
+  Unable to reliably determine the relationship.
+- ucdp-ged-456962::chunk-0000 vs icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127: neutral (uncertain)
+  Unable to reliably determine the relationship.
+
+================================================================================
+CONFIDENCE
+================================================================================
+Final score: 72.75/100
+Confidence level: MEDIUM
+Relevance: 54.67
+Agreement: 66.67
+Freshness: 48.33
+Source reliability: 92.50
+Claim support: 100.00
+
+================================================================================
+CITATIONS
+================================================================================
+- ucdp-ged-433534::chunk-0000: UCDP GED
+  Title: Government of Russia (Soviet Union) - Civilians
+- ucdp-ged-447526::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-ged-448444::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-dyadic-14117-2025::chunk-0000: UCDP Dyadic
+  Title: Russia (Soviet Union), Ukraine
+- ucdp-ged-458991::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- ucdp-ged-456962::chunk-0000: UCDP GED
+  Title: Russia - Ukraine
+- icrc::icrc/customary_ihl/rule_15_precautions/rule_15_Practice.pdf::chunk-0127: ICRC Customary IHL
+  Title: Rule 15: Precautions (Practice)
+- icrc::icrc/ihl_treaties/additional_protocols.pdf::chunk-0119: ICRC IHL Treaty
+  Title: Additional Protocols
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0137: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+- icrc::icrc/customary_ihl/rule_11_indiscriminate_attacks.md/rule_11_Practice.pdf::chunk-0042: ICRC Customary IHL
+  Title: Rule 11: Indiscriminate Attacks.Md (Practice)
+- icrc::icrc/customary_ihl/rule_07_distinction_objects/rule_07_Practice.pdf::chunk-0402: ICRC Customary IHL
+  Title: Rule 07: Distinction Objects (Practice)
+- icrc::icrc/customary_ihl/rule_01_principle_of_distinction/rule_01_Practice.pdf::chunk-0016: ICRC Customary IHL
+  Title: Rule 01: Principle Of Distinction (Practice)
+
+================================================================================
+ANALYSIS COMPLETE — total wall time: 237.22s
+================================================================================

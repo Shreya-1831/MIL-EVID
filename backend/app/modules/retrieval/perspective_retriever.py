@@ -25,16 +25,24 @@ class PerspectiveRetrievalResult:
 class PerspectiveAwareRetriever:
     """Retrieve evidence separately for each requested perspective."""
 
+    _MILITARY_AUXILIARY_QUERY = (
+        "Russia Ukraine arms transfers weapons military equipment "
+        "suppliers recipients deliveries imports exports"
+    )
+
     def __init__(
         self,
         *,
         retriever: HybridRetriever,
         query_builder: PerspectiveQueryBuilder,
-        top_k_per_perspective: int = 20,
+        top_k_per_perspective: int = 50,
     ) -> None:
         self._retriever = retriever
         self._query_builder = query_builder
-        self._top_k_per_perspective = max(1, top_k_per_perspective)
+        self._top_k_per_perspective = max(
+            1,
+            top_k_per_perspective,
+        )
 
     def search(
         self,
@@ -44,10 +52,17 @@ class PerspectiveAwareRetriever:
         top_k: int | None = None,
     ) -> list[HybridSearchResult]:
         """Retrieve and merge candidates across perspectives."""
+
+        retrieval_k = (
+            max(1, top_k)
+            if top_k is not None
+            else self._top_k_per_perspective
+        )
+
         if not perspectives:
             return self._retriever.search(
                 query,
-                top_k=self._top_k_per_perspective,
+                top_k=retrieval_k,
             )
 
         focused_queries = self._query_builder.build(
@@ -61,14 +76,46 @@ class PerspectiveAwareRetriever:
         for perspective in perspectives:
             results = self._retriever.search(
                 focused_queries[perspective],
-                top_k=self._top_k_per_perspective,
+                top_k=retrieval_k,
             )
 
-            for result in results:
-                if result.chunk_id in seen_ids:
-                    continue
+            self._append_unique(
+                merged=merged,
+                seen_ids=seen_ids,
+                results=results,
+            )
 
-                seen_ids.add(result.chunk_id)
-                merged.append(result)
+            # Military gets a second retrieval path specifically for
+            # arms-transfer evidence such as SIPRI.
+            if perspective == Perspective.MILITARY:
+                military_results = self._retriever.search(
+                    (
+                        f"{query} "
+                        f"{self._MILITARY_AUXILIARY_QUERY}"
+                    ),
+                    top_k=retrieval_k,
+                )
+
+                self._append_unique(
+                    merged=merged,
+                    seen_ids=seen_ids,
+                    results=military_results,
+                )
 
         return merged
+
+    @staticmethod
+    def _append_unique(
+        *,
+        merged: list[HybridSearchResult],
+        seen_ids: set[str],
+        results: list[HybridSearchResult],
+    ) -> None:
+        """Append retrieval results while preserving unique chunk IDs."""
+
+        for result in results:
+            if result.chunk_id in seen_ids:
+                continue
+
+            seen_ids.add(result.chunk_id)
+            merged.append(result)

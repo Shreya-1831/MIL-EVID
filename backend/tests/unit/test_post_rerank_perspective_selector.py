@@ -55,13 +55,13 @@ def test_selects_up_to_five_evidence_items_per_source() -> None:
 
     assert selected_ids == [
         "military-1",
+        "legal-1",
+        "historical-1",
         "military-2",
+        "legal-2",
         "military-3",
         "military-4",
         "military-5",
-        "legal-1",
-        "legal-2",
-        "historical-1",
     ]
 
     assert "military-6" not in selected_ids
@@ -89,10 +89,10 @@ def test_respects_final_evidence_budget() -> None:
     assert len(result) == 5
     assert [item.evidence_id for item in result] == [
         "military-1",
+        "legal-1",
         "military-2",
+        "legal-2",
         "military-3",
-        "military-4",
-        "military-5",
     ]
 
 
@@ -222,9 +222,9 @@ def test_does_not_reduce_available_evidence_below_source_limit() -> None:
     assert len(ids) == len(set(ids))
     assert ids == [
         "legal-1",
-        "legal-2",
         "military-1",
         "historical-1",
+        "legal-2",
     ]
 
 

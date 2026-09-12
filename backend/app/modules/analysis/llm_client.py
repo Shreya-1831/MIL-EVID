@@ -1,4 +1,4 @@
-"""Fast, bounded-concurrency LangChain Ollama client for MIL-EVID."""
+"""LangChain Ollama client for MIL-EVID."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ class OllamaClient:
         base_url: str,
         model: str,
         timeout_seconds: float = 120.0,
-        # num_predict: int = 350,
         num_predict: int = 220,
         keep_alive: str = "24h",
     ) -> None:
@@ -39,7 +38,7 @@ class OllamaClient:
         system_prompt: str,
         user_prompt: str,
     ) -> str:
-        """Generate a normal text response and report generation time."""
+        """Generate a normal text response and report generation metrics."""
 
         start = time.perf_counter()
 
@@ -52,12 +51,24 @@ class OllamaClient:
             )
         finally:
             elapsed = time.perf_counter() - start
-            print(f"[LLM TIMING] generate: {elapsed:.2f}s")
+
+            print(
+                "[LLM TIMING] generate: "
+                f"{elapsed:.2f}s | "
+                f"prompt_chars={len(system_prompt) + len(user_prompt):,}"
+            )
 
         content = response.content
 
         if not isinstance(content, str) or not content.strip():
-            raise RuntimeError("Ollama returned an empty response.")
+            raise RuntimeError(
+                "Ollama returned an empty response."
+            )
+
+        print(
+            "[LLM OUTPUT] "
+            f"response_chars={len(content):,}"
+        )
 
         return content.strip()
 
@@ -68,7 +79,9 @@ class OllamaClient:
         user_prompt: str,
         schema: dict,
     ) -> dict:
-        """Generate a structured response constrained to the supplied JSON schema."""
+        """Generate a structured response and report request metrics."""
+
+        prompt_chars = len(system_prompt) + len(user_prompt)
 
         start = time.perf_counter()
 
@@ -86,9 +99,23 @@ class OllamaClient:
             )
         finally:
             elapsed = time.perf_counter() - start
-            print(f"[LLM TIMING] generate_structured: {elapsed:.2f}s")
+
+            print(
+                "[LLM TIMING] generate_structured: "
+                f"{elapsed:.2f}s | "
+                f"prompt_chars={prompt_chars:,}"
+            )
 
         if not isinstance(response, dict):
-            raise RuntimeError("Ollama returned an invalid structured response.")
+            raise RuntimeError(
+                "Ollama returned an invalid structured response."
+            )
+
+        response_text = str(response)
+
+        print(
+            "[LLM OUTPUT] "
+            f"response_chars={len(response_text):,}"
+        )
 
         return response

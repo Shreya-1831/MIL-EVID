@@ -14,7 +14,7 @@ Reranking:
 """
 
 from __future__ import annotations
-
+import torch
 from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
@@ -72,10 +72,15 @@ class CrossEncoderReranker:
 
         self._model_name = model_name
         self._batch_size = batch_size
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
         self._model = (
             model
             if model is not None
-            else CrossEncoder(model_name)
+            else CrossEncoder(
+                model_name,
+                device=device,
+            )
         )
 
     @property

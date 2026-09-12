@@ -1,4 +1,4 @@
-"""Fixed top-5-per-source evidence selection after reranking."""
+"""Diverse evidence selection after cross-encoder reranking."""
 
 from __future__ import annotations
 
@@ -8,18 +8,11 @@ from app.domain.models.analysis import AnalysisEvidence
 
 
 class PostRerankPerspectiveSelector:
-    """Select the highest-ranked evidence from each available source.
+    """Select reranked evidence with source diversity.
 
-    The cross-encoder remains responsible for relevance scoring and ranking.
-
-    This experimental selector:
-    1. groups reranked evidence by source;
-    2. preserves the top five cross-encoder-ranked items from each source;
-    3. restores the original global cross-encoder ordering;
-    4. respects the final evidence budget.
-
-    Unlike the production proportional selector, this experimental
-    implementation intentionally uses a fixed per-source selection rule.
+    Evidence is first grouped by source while preserving cross-encoder
+    ordering within each source. Items are then selected round-robin
+    across sources so that one source cannot consume the entire budget.
     """
 
     _PER_SOURCE_LIMIT = 5
@@ -31,48 +24,45 @@ class PostRerankPerspectiveSelector:
         evidence: Sequence[AnalysisEvidence],
         max_evidence: int,
     ) -> tuple[AnalysisEvidence, ...]:
-        """Select up to five highest-ranked evidence items per source."""
+        """Select diverse evidence while preserving reranker ordering."""
 
-        if max_evidence <= 0:
+        if max_evidence <= 0 or not evidence:
             return ()
 
-        if not evidence:
+        source_groups: dict[str, list[AnalysisEvidence]] = {}
+
+        for item in evidence:
+            source = item.source
+            if not source:
+                continue
+
+            group = source_groups.setdefault(source, [])
+
+            if len(group) < self._PER_SOURCE_LIMIT:
+                group.append(item)
+
+        if not source_groups:
             return ()
 
         selected: list[AnalysisEvidence] = []
         selected_ids: set[str] = set()
-        source_counts: dict[str, int] = {}
 
-        # Evidence is already ordered by cross-encoder score.
-        # Therefore, the first five records encountered for each
-        # source are that source's highest-ranked evidence.
-        for item in evidence:
-            source = item.source
+        # Take one highly-ranked item from each source, then repeat.
+        # This prevents one source from consuming the entire budget.
+        for round_index in range(self._PER_SOURCE_LIMIT):
+            for group in source_groups.values():
+                if round_index >= len(group):
+                    continue
 
-            if not source:
-                continue
+                item = group[round_index]
 
-            if source_counts.get(source, 0) >= self._PER_SOURCE_LIMIT:
-                continue
+                if item.evidence_id in selected_ids:
+                    continue
 
-            if item.evidence_id in selected_ids:
-                continue
+                selected.append(item)
+                selected_ids.add(item.evidence_id)
 
-            selected.append(item)
-            selected_ids.add(item.evidence_id)
-            source_counts[source] = source_counts.get(source, 0) + 1
+                if len(selected) >= max_evidence:
+                    return tuple(selected)
 
-        # Restore the original cross-encoder ordering.
-        evidence_order = {
-            item.evidence_id: index
-            for index, item in enumerate(evidence)
-        }
-
-        selected.sort(
-            key=lambda item: evidence_order.get(
-                item.evidence_id,
-                len(evidence),
-            )
-        )
-
-        return tuple(selected[:max_evidence])
+        return tuple(selected)

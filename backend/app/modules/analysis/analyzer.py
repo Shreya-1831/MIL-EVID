@@ -139,27 +139,54 @@ class EvidenceAnalyzer:
         def matches_perspective(
             evidence: AnalysisEvidence,
         ) -> bool:
-            if evidence.perspective == perspective:
-                return True
+            if evidence.source in {"UCDP GED", "UCDP Dyadic"}:
+                return perspective == Perspective.MILITARY
+
+            if evidence.perspective is not None:
+                return evidence.perspective == perspective
 
             return perspective in cls._SOURCE_PERSPECTIVES.get(
                 evidence.source,
                 set(),
             )
 
-        relevant = [
+
+        direct_relevant = [
             evidence
             for evidence in context.evidence
-            if matches_perspective(evidence)
+            if (
+                evidence.evidence_id in direct_ids
+                and matches_perspective(evidence)
+            )
         ]
 
-        relevant.sort(
+        contextual_relevant = [
+            evidence
+            for evidence in context.evidence
+            if (
+                evidence.evidence_id not in direct_ids
+                and matches_perspective(evidence)
+            )
+        ]
+
+        direct_relevant.sort(
             key=lambda evidence: evidence.reranker_score,
             reverse=True,
         )
 
+        contextual_relevant.sort(
+            key=lambda evidence: evidence.reranker_score,
+            reverse=True,
+        )
+
+        if direct_relevant:
+            relevant = direct_relevant
+        elif perspective == Perspective.HISTORICAL:
+            relevant = []
+        else:
+            relevant = contextual_relevant
+
         # Keep the LLM evidence view bounded.
-        # Retrieval and reranking are unchanged.
         relevant = relevant[: cls._MAX_EVIDENCE]
 
         logger.warning(
@@ -852,18 +879,32 @@ class EvidenceAnalyzer:
         for index, evidence in enumerate(context.evidence, start=1):
             is_direct = evidence.evidence_id in direct_ids
 
-            relevance = (
-                "PRIMARY"
-                if (
+            # relevance = (
+            #     "PRIMARY"
+            #     if (
+            #         evidence.perspective == perspective
+            #         or perspective
+            #         in cls._SOURCE_PERSPECTIVES.get(
+            #             evidence.source,
+            #             set(),
+            #         )
+            #     )
+            #     else "SUPPORTING"
+            # )
+            if evidence.source in {"UCDP GED", "UCDP Dyadic"}:
+                is_primary = perspective == Perspective.MILITARY
+            else:
+                is_primary = (
                     evidence.perspective == perspective
-                    or perspective
+                    if evidence.perspective is not None
+                    else perspective
                     in cls._SOURCE_PERSPECTIVES.get(
                         evidence.source,
                         set(),
                     )
                 )
-                else "SUPPORTING"
-            )
+
+            relevance = "PRIMARY" if is_primary else "SUPPORTING"
 
             evidence_sections.append(
                 "\n".join(

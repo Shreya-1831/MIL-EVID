@@ -6,21 +6,28 @@ from app.domain.enums import Perspective
 
 
 class PerspectiveQueryBuilder:
-    """Expand a user query with generic perspective-specific terms."""
+    """Build perspective- and source-aware retrieval queries."""
 
     _TERMS = {
         Perspective.MILITARY: (
             "military forces armed conflict attacks operations "
-            "weapons combat fighting casualties capabilities"
+            "weapons combat fighting casualties capabilities "
+            "arms transfers weapons transfers military equipment "
+            "defense procurement suppliers recipients deliveries "
+            "UCDP SIPRI"
         ),
         Perspective.LEGAL: (
             "international humanitarian law IHL civilian protection "
             "distinction proportionality precautions targeting "
-            "civilian objects responsibility"
+            "civilian objects responsibility lawful unlawful "
+            "war crimes ICRC"
         ),
         Perspective.HISTORICAL: (
             "historical background chronology conflict escalation "
-            "ceasefire agreement settlement peace process diplomacy"
+            "ceasefire agreement settlement peace process diplomacy "
+            "Minsk agreement Minsk II negotiation political settlement "
+            "eastern Ukraine Russia Ukraine conflict timeline "
+            "UN Peacemaker"
         ),
     }
 
@@ -30,6 +37,7 @@ class PerspectiveQueryBuilder:
         perspectives: tuple[Perspective, ...],
     ) -> dict[Perspective, str]:
         """Build one focused query per perspective."""
+
         normalized_query = " ".join(query.strip().split())
 
         return {

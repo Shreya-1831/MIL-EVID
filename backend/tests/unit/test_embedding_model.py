@@ -30,7 +30,7 @@ def test_get_embedding_model_caches_by_name(monkeypatch):
     calls = []
 
     class FakeSentenceTransformer:
-        def __init__(self, model_name):
+        def __init__(self, model_name, device=None):
             calls.append(model_name)
 
     monkeypatch.setattr(

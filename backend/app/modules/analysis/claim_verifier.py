@@ -91,12 +91,34 @@ class ClaimVerifier:
         ]
 
         if not valid_items:
-            return tuple(
-                self._unsupported_result(
-                    self._sanitize_claim(claim.strip())
-                )
-                for claim in claims
+            results = []
+
+            for index, raw_claim in enumerate(claims, start=1):
+                claim = self._sanitize_claim(raw_claim.strip())
+
+                if not claim:
+                    results.append(
+                        self._unsupported_result(claim)
+                    )
+                    continue
+
+                result = deterministic_results.get(index)
+
+                if result is None:
+                    result = self._unsupported_result(claim)
+
+                results.append(result)
+
+            final_results = self.deduplicate_claims(
+                results=tuple(results)
             )
+
+            logger.info(
+                "Claim verification completed: %d result(s).",
+                len(final_results),
+            )
+
+            return final_results
 
         logger.info(
             "Batch claim verification: %d claim(s) using 1 LLM call.",
@@ -371,6 +393,8 @@ class ClaimVerifier:
             )
 
         return result_map
+
+    
     @classmethod
     def _verify_structured_ucdp_claim(
         cls,

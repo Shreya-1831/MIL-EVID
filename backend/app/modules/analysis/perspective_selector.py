@@ -157,9 +157,11 @@ class PerspectiveAwareCandidateSelector:
         evidence = evidence_by_id.get(candidate.chunk_id)
 
         if evidence is not None:
+            if evidence.source in {"UCDP GED", "UCDP Dyadic"}:
+                return perspective == "military"
+
             if evidence.perspective is not None:
-                if evidence.perspective.value == perspective:
-                    return True
+                return evidence.perspective.value == perspective
 
             text = " ".join(
                 filter(

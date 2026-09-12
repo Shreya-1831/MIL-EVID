@@ -22,6 +22,7 @@ class EvidenceConsistencyGuard:
         *,
         query: str,
         evidence: tuple[AnalysisEvidence, ...],
+        perspective: str | None = None,
     ) -> EvidenceGuardResult:
         query_entities = self._extract_entities(query)
         query_topics = self._extract_topics(query)
@@ -40,6 +41,7 @@ class EvidenceConsistencyGuard:
                 evidence_entities=evidence_entities,
                 query_topics=query_topics,
                 evidence_topics=evidence_topics,
+                perspective=perspective,
             ):
                 direct.append(item)
             else:
@@ -147,6 +149,7 @@ class EvidenceConsistencyGuard:
         evidence_entities: set[str],
         query_topics: set[str],
         evidence_topics: set[str],
+        perspective: str | None = None,
     ) -> bool:
         """
         Determine whether evidence is sufficiently aligned with the query.
@@ -161,7 +164,9 @@ class EvidenceConsistencyGuard:
 
         # If the query contains identifiable countries, the evidence
         # must contain the same country set.
-        if query_entities:
+        # Legal evidence can be generally applicable IHL doctrine.
+        # It does not need to mention the specific countries in the query.
+        if perspective != "legal" and query_entities:
             if not evidence_entities:
                 return False
 

@@ -14,7 +14,7 @@ from functools import lru_cache
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
-
+import torch
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -22,22 +22,41 @@ logger = get_logger(__name__)
 DEFAULT_BATCH_SIZE = 64
 
 
+# @lru_cache(maxsize=4)
+# def get_embedding_model(model_name: str) -> SentenceTransformer:
+#     """Load and cache a Sentence Transformer model by name.
+
+#     The model is cached by model name so repeated indexing/retrieval
+#     operations in the same process do not reload the model.
+#     """
+#     if not isinstance(model_name, str) or not model_name.strip():
+#         raise ValueError("model_name must be a non-empty string")
+
+#     logger.info(
+#         "embedding_model_loading",
+#         model_name=model_name,
+#     )
+
+#     return SentenceTransformer(model_name)
+
 @lru_cache(maxsize=4)
 def get_embedding_model(model_name: str) -> SentenceTransformer:
-    """Load and cache a Sentence Transformer model by name.
-
-    The model is cached by model name so repeated indexing/retrieval
-    operations in the same process do not reload the model.
-    """
+    """Load and cache a Sentence Transformer model by name."""
     if not isinstance(model_name, str) or not model_name.strip():
         raise ValueError("model_name must be a non-empty string")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     logger.info(
         "embedding_model_loading",
         model_name=model_name,
+        device=device,
     )
 
-    return SentenceTransformer(model_name)
+    return SentenceTransformer(
+        model_name,
+        device=device,
+    )
 
 
 def embed_texts(

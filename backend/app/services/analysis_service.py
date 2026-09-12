@@ -133,31 +133,48 @@ class AnalysisService:
             max_evidence=rerank_top_k,
         )
 
-        guard_result = self._evidence_guard.filter(
-            query=query,
-            evidence=selected_evidence,
-        )
+        guarded_direct: list = []
+        guarded_contextual: list = []
 
-        filtered_evidence = (
-            guard_result.direct_evidence + guard_result.contextual_evidence
-        )
+        for perspective in (
+            Perspective.MILITARY,
+            Perspective.LEGAL,
+            Perspective.HISTORICAL,
+        ):
+            perspective_evidence = tuple(
+                evidence
+                for evidence in selected_evidence
+                if (
+                    (
+                        evidence.source in {"UCDP GED", "UCDP Dyadic"}
+                        and perspective == Perspective.MILITARY
+                    )
+                    or (
+                        evidence.source not in {"UCDP GED", "UCDP Dyadic"}
+                        and evidence.perspective == perspective
+                    )
+                )
+            )
 
-        direct_ids = {
-            evidence.evidence_id
-            for evidence in guard_result.direct_evidence
-        }
+            if not perspective_evidence:
+                continue
 
-        direct_evidence = tuple(
-            evidence
-            for evidence in filtered_evidence
-            if evidence.evidence_id in direct_ids
-        )
+            guard_result = self._evidence_guard.filter(
+                query=query,
+                evidence=perspective_evidence,
+                perspective=perspective.value,
+            )
 
-        contextual_evidence = tuple(
-            evidence
-            for evidence in filtered_evidence
-            if evidence.evidence_id not in direct_ids
-        )
+            guarded_direct.extend(guard_result.direct_evidence)
+            guarded_contextual.extend(guard_result.contextual_evidence)
+
+        # filtered_evidence = tuple(
+        #     guarded_direct + guarded_contextual
+        # )
+        filtered_evidence = tuple(guarded_direct)
+
+        direct_evidence = tuple(guarded_direct)
+        contextual_evidence = tuple(guarded_contextual)
 
         logger.info(
             "Pipeline retrieval=%.3fs rerank=%.3fs hybrid=%d "
@@ -320,3 +337,17 @@ class AnalysisService:
             chunk_id: chunk.text
             for chunk_id, chunk in chunks.items()
         }
+
+    @staticmethod
+    def _evidence_matches_perspective(
+        *,
+        evidence,
+        perspective: Perspective,
+    ) -> bool:
+        if evidence.source in {"UCDP GED", "UCDP Dyadic"}:
+            return perspective == Perspective.MILITARY
+
+        if evidence.perspective is not None:
+            return evidence.perspective == perspective
+
+        return False

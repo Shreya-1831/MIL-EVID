@@ -29,6 +29,10 @@ class ContradictionDetector:
         r"^ucdp-dyadic-(?P<dyad>.+)-(?P<year>\d{4})::",
         re.IGNORECASE,
     )
+    _UCDP_GED_ID_PATTERN = re.compile(
+        r"^ucdp-ged-(?P<event_id>\d+)::",
+        re.IGNORECASE,
+    )
 
     def __init__(self, llm_client: OllamaClient) -> None:
         self._llm_client = llm_client
@@ -142,13 +146,19 @@ class ContradictionDetector:
         not contradictory merely because the record years differ.
         """
 
-        return cls._is_different_year_uccp_dyadic_pair(
+        if cls._is_different_year_ucdp_dyadic_pair(
+            evidence_a,
+            evidence_b,
+        ):
+            return True
+
+        return cls._is_different_ucdp_ged_event_pair(
             evidence_a,
             evidence_b,
         )
 
     @classmethod
-    def _is_different_year_uccp_dyadic_pair(
+    def _is_different_year_ucdp_dyadic_pair(
         cls,
         evidence_a: AnalysisEvidence,
         evidence_b: AnalysisEvidence,
@@ -189,6 +199,45 @@ class ContradictionDetector:
             year_a,
             evidence_b.evidence_id,
             year_b,
+        )
+
+        return True
+
+    @classmethod
+    def _is_different_ucdp_ged_event_pair(
+        cls,
+        evidence_a: AnalysisEvidence,
+        evidence_b: AnalysisEvidence,
+    ) -> bool:
+        """Return True when UCDP GED records refer to different events."""
+
+        source_a = str(evidence_a.source).strip().casefold()
+        source_b = str(evidence_b.source).strip().casefold()
+
+        if source_a != "ucdp ged" or source_b != "ucdp ged":
+            return False
+
+        match_a = cls._UCDP_GED_ID_PATTERN.match(
+            str(evidence_a.evidence_id).strip()
+        )
+        match_b = cls._UCDP_GED_ID_PATTERN.match(
+            str(evidence_b.evidence_id).strip()
+        )
+
+        if match_a is None or match_b is None:
+            return False
+
+        event_a = match_a.group("event_id")
+        event_b = match_b.group("event_id")
+
+        if event_a == event_b:
+            return False
+
+        logger.info(
+            "UCDP GED records identified as distinct events: "
+            "%s vs %s.",
+            evidence_a.evidence_id,
+            evidence_b.evidence_id,
         )
 
         return True
@@ -275,6 +324,20 @@ class ContradictionDetector:
             "NOT by itself a contradiction. Do not classify annual UCDP "
             "records as contradictory merely because one record is from "
             "2023 and another is from 2025.\n\n"
+            "Return exactly one result for every supplied pair.\n"
+            "pair_index must match the supplied pair number.\n\n"
+            "status must be exactly one of:\n"
+            "ENTAILMENT, CONTRADICTION, NEUTRAL\n\n"
+            "contradiction_type must be exactly one of:\n"
+            "FACTUAL, TEMPORAL, UNCERTAIN, NONE\n\n"
+            "IMPORTANT UCDP GED RULE:\n"
+            "UCDP GED records identify individual conflict events. "
+            "Different UCDP GED event IDs represent different event "
+            "records. Do not classify two different GED event IDs as "
+            "the same event merely because they have similar actors, "
+            "locations, wording, or casualty information. Differences "
+            "between distinct GED event records are NOT by themselves "
+            "contradictions.\n\n"
             "Return exactly one result for every supplied pair.\n"
             "pair_index must match the supplied pair number.\n\n"
             "status must be exactly one of:\n"
@@ -493,7 +556,27 @@ class ContradictionDetector:
         evidence_a: AnalysisEvidence,
         evidence_b: AnalysisEvidence,
     ) -> ContradictionResult:
-        """Return a neutral result for separate annual UCDP records."""
+        """Return a neutral result for a known non-comparable pair."""
+
+        source = str(evidence_a.source).strip().casefold()
+
+        if source == "ucdp dyadic":
+            explanation = (
+                "These UCDP Dyadic records represent different annual "
+                "records for the same dyad; a difference in record year "
+                "does not by itself establish a contradiction."
+            )
+        elif source == "ucdp ged":
+            explanation = (
+                "These UCDP GED records represent distinct conflict "
+                "events; differences between separate event records "
+                "do not by themselves establish a contradiction."
+            )
+        else:
+            explanation = (
+                "These evidence items are not comparable under the "
+                "deterministic consistency rules."
+            )
 
         return ContradictionResult(
             evidence_a_id=evidence_a.evidence_id,
@@ -501,11 +584,7 @@ class ContradictionDetector:
             status=ContradictionStatus.NEUTRAL,
             contradiction_type=ContradictionType.UNCERTAIN,
             score=0.0,
-            explanation=(
-                "These UCDP Dyadic records represent different annual "
-                "records for the same dyad; a difference in record year "
-                "does not by itself establish a contradiction."
-            ),
+            explanation=explanation,
         )
 
     @staticmethod
