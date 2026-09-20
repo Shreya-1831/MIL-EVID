@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "MIL-EVID Analysis Console"
+description = "A frontend-only evidence-grounded military situation analysis console with mock authentication, traceable analyses, evidence exploration, confidence signals, and system status views."
+version = "1.0.0"
+id = "artifacts/mil-evid"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24327
+
+[services.development]
+run = "pnpm --filter @workspace/mil-evid run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mil-evid", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/mil-evid/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24327"
+BASE_PATH = "/"
