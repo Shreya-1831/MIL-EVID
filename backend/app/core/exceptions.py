@@ -19,6 +19,26 @@ from __future__ import annotations
 class MilEvidError(Exception):
     """Base class for all deliberately-raised MIL-EVID errors."""
 
+    status_code: int = 500
+    error_code: str = "MIL_EVID_ERROR"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        error_code: str | None = None,
+    ) -> None:
+        self.message = message
+
+        if status_code is not None:
+            self.status_code = status_code
+
+        if error_code is not None:
+            self.error_code = error_code
+
+        super().__init__(message)
+
 
 class ConfigurationError(MilEvidError):
     """Raised when required configuration is missing or invalid."""
@@ -138,3 +158,6 @@ class PipelineError(MilEvidError):
 
 class RepositoryError(MilEvidError):
     """Raised for database access failures in the repository layer."""
+
+    status_code = 500
+    error_code = "REPOSITORY_ERROR"

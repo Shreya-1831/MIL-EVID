@@ -6,6 +6,7 @@ semantic retrieval using Reciprocal Rank Fusion.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import Counter
 from pathlib import Path
 from typing import Protocol, Sequence
 
@@ -161,6 +162,52 @@ class HybridRetriever:
             query,
             top_k=dense_k,
         )
+
+        # print("\n========== HYBRID RETRIEVAL DEBUG ==========")
+
+        # print(
+        #     "BM25 results:",
+        #     len(bm25_results),
+        # )
+
+        # print(
+        #     "BM25 SIPRI:",
+        #     sum(
+        #         result.chunk_id.lower().startswith("sipri-")
+        #         for result in bm25_results
+        #     ),
+        # )
+
+        # print(
+        #     "BM25 top IDs:",
+        #     [
+        #         result.chunk_id
+        #         for result in bm25_results[:10]
+        #     ],
+        # )
+
+        # print(
+        #     "Dense results:",
+        #     len(dense_results),
+        # )
+
+        # print(
+        #     "Dense SIPRI:",
+        #     sum(
+        #         result.chunk_id.lower().startswith("sipri-")
+        #         for result in dense_results
+        #     ),
+        # )
+
+        # print(
+        #     "Dense top IDs:",
+        #     [
+        #         result.chunk_id
+        #         for result in dense_results[:10]
+        #     ],
+        # )
+
+        # print("============================================")
 
         fused = reciprocal_rank_fusion(
             [

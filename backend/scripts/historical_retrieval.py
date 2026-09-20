@@ -26,39 +26,34 @@ query = (
 )
 
 
-focused_query = PerspectiveQueryBuilder().build(
+focused_queries = PerspectiveQueryBuilder().build(
     query,
     (Perspective.HISTORICAL,),
 )[Perspective.HISTORICAL]
 
+if isinstance(focused_queries, str):
+    focused_queries = (focused_queries,)
+
 
 def source_name(chunk_id: str) -> str:
     """Classify a chunk ID by evidence source."""
-
     if chunk_id.startswith("un_peacemaker::"):
         return "UN Peacemaker"
-
     if chunk_id.startswith("ucdp-ged-"):
         return "UCDP GED"
-
     if chunk_id.startswith("ucdp-dyadic-"):
         return "UCDP Dyadic"
-
     if chunk_id.startswith("icrc::"):
         return "ICRC"
-
     if "sipri" in chunk_id.lower():
         return "SIPRI"
-
     if "acled" in chunk_id.lower():
         return "ACLED"
-
     return "Other"
 
 
 def source_counts(results) -> dict[str, int]:
     """Count how many results came from each source."""
-
     counts: dict[str, int] = {}
 
     for result in results:
@@ -70,7 +65,6 @@ def source_counts(results) -> dict[str, int]:
 
 def print_results(title: str, results) -> None:
     """Print retrieval results."""
-
     print("\n" + "-" * 80)
     print(title)
     print("-" * 80)
@@ -85,7 +79,6 @@ def print_results(title: str, results) -> None:
 
 def find_matches(results, target_prefix: str):
     """Find all results matching a chunk/document prefix."""
-
     return [
         (rank, result)
         for rank, result in enumerate(results, 1)
@@ -93,25 +86,48 @@ def find_matches(results, target_prefix: str):
     ]
 
 
+def unique_results(results):
+    """Remove duplicate chunk IDs while preserving first occurrence."""
+    seen = set()
+    unique = []
+
+    for result in results:
+        if result.chunk_id in seen:
+            continue
+
+        seen.add(result.chunk_id)
+        unique.append(result)
+
+    return unique
+
+
 print("\n" + "=" * 80)
 print("HISTORICAL RETRIEVAL DIAGNOSTIC")
 print("=" * 80)
 
-print("\nQUERY:")
-print(focused_query)
+print("\nQUERIES:")
+for index, focused_query in enumerate(focused_queries, 1):
+    print(f"{index}. {focused_query}")
 
 
 # ============================================================================
 # BM25
 # ============================================================================
 
-bm25_results = retriever.bm25_index.search(
-    focused_query,
-    top_k=200,
-)
+bm25_results = []
+
+for focused_query in focused_queries:
+    bm25_results.extend(
+        retriever.bm25_index.search(
+            focused_query,
+            top_k=200,
+        )
+    )
+
+bm25_results = unique_results(bm25_results)
 
 print_results(
-    "BM25 TOP 200",
+    "BM25 COMBINED RESULTS",
     bm25_results,
 )
 
@@ -120,13 +136,20 @@ print_results(
 # FAISS
 # ============================================================================
 
-dense_results = retriever.faiss_index.search(
-    focused_query,
-    top_k=200,
-)
+dense_results = []
+
+for focused_query in focused_queries:
+    dense_results.extend(
+        retriever.faiss_index.search(
+            focused_query,
+            top_k=200,
+        )
+    )
+
+dense_results = unique_results(dense_results)
 
 print_results(
-    "FAISS TOP 200",
+    "FAISS COMBINED RESULTS",
     dense_results,
 )
 
@@ -135,13 +158,20 @@ print_results(
 # HYBRID
 # ============================================================================
 
-hybrid_results = retriever.search(
-    focused_query,
-    top_k=200,
-)
+hybrid_results = []
+
+for focused_query in focused_queries:
+    hybrid_results.extend(
+        retriever.search(
+            focused_query,
+            top_k=200,
+        )
+    )
+
+hybrid_results = unique_results(hybrid_results)
 
 print("\n" + "-" * 80)
-print("HYBRID TOP 200")
+print("HYBRID COMBINED RESULTS")
 print("-" * 80)
 
 for rank, result in enumerate(hybrid_results, 1):
@@ -210,7 +240,7 @@ for name, results in (
     print(f"\n{name}:")
 
     if not matches:
-        print("  NOT FOUND in top 200")
+        print("  NOT FOUND")
     else:
         for rank, result in matches:
             print(
@@ -242,7 +272,7 @@ for name, results in (
     print(f"\n{name}:")
 
     if not matches:
-        print("  NO SIPRI RESULTS in top 200")
+        print("  NO SIPRI RESULTS")
     else:
         for rank, result in matches:
             print(
@@ -255,10 +285,6 @@ for name, results in (
 # ============================================================================
 # SUMMARY
 # ============================================================================
-
-print("\n" + "=" * 80)
-print("DIAGNOSTIC SUMMARY")
-print("=" * 80)
 
 ukraine_bm25 = find_matches(
     bm25_results,
@@ -293,6 +319,10 @@ sipri_hybrid = [
     if source_name(result.chunk_id) == "SIPRI"
 ]
 
+
+print("\n" + "=" * 80)
+print("DIAGNOSTIC SUMMARY")
+print("=" * 80)
 
 print(
     "\nUkraine UN Peacemaker:"

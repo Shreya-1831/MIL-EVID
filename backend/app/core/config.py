@@ -27,12 +27,7 @@ class RetrievalWeights(BaseSettings):
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        env_nested_delimiter="__",
-        extra="ignore",
-    )
+    model_config = SettingsConfigDict(env_file=".env",env_file_encoding="utf-8",env_nested_delimiter="__",extra="ignore",)
 
     app_name: str = Field(default="mil-evid", alias="APP_NAME")
     environment: str = Field(default="development", alias="ENVIRONMENT")
@@ -48,6 +43,11 @@ class Settings(BaseSettings):
     acled_timeout_seconds: float = Field(default=15.0, alias="ACLED_TIMEOUT_SECONDS")
     acled_max_retries: int = Field(default=3, alias="ACLED_MAX_RETRIES")
 
+    jwt_secret_key: str = Field(alias="JWT_SECRET_KEY",)
+    jwt_algorithm: str = Field(default="HS256",alias="JWT_ALGORITHM",)
+    access_token_expire_minutes: int = Field(default=30,gt=0,alias="ACCESS_TOKEN_EXPIRE_MINUTES",)
+    refresh_token_expire_days: int = Field(default=7,gt=0,alias="REFRESH_TOKEN_EXPIRE_DAYS",)
+    
     embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
         alias="EMBEDDING_MODEL",

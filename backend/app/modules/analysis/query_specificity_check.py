@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 logger = logging.getLogger("mil_evid")
 
@@ -13,7 +14,7 @@ class QuerySpecificityChecker:
     COUNTRIES = {
         'india', 'pakistan', 'ukraine', 'russia', 'china', 'usa',
         'iran', 'israel', 'palestine', 'france', 'uk', 'afghanistan',
-        'germany' ,'colombia'
+        'germany' ,'colombia', 'united kingdom', 'united states of america'
     }
     
     PRINCIPLE_WORDS = {
@@ -38,7 +39,14 @@ class QuerySpecificityChecker:
         
         # Extract query entities
         query_lower = query.lower()
-        query_countries = [c for c in cls.COUNTRIES if c in query_lower]
+        query_countries = [
+            c
+            for c in cls.COUNTRIES
+            if re.search(
+                rf"\b{re.escape(c)}\b",
+                query_lower,
+            )
+        ]
         
         if not query_countries:
             # Not a country-specific query
@@ -47,7 +55,14 @@ class QuerySpecificityChecker:
         analysis_lower = analysis.lower()
         
         # Check: Countries mentioned in analysis
-        analysis_countries = [c for c in query_countries if c in analysis_lower]
+        analysis_countries = [
+            c
+            for c in query_countries
+            if re.search(
+                rf"\b{re.escape(c)}\b",
+                analysis_lower,
+            )
+        ]
         
         if not analysis_countries:
             msg = f"Query mentions {query_countries} but analysis doesn't"

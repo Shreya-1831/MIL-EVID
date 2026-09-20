@@ -1,10 +1,8 @@
-"""
-Cross-encoder reranking for hybrid retrieval candidates.
+"""Cross-encoder reranking for retrieval candidates.
 
-The reranker takes candidate chunks produced by the hybrid BM25 + FAISS
-retriever and scores each (query, chunk_text) pair using a cross-encoder.
-
-The dense retrieval embedding model is NOT used here.
+The reranker supports:
+- Hybrid BM25 + FAISS candidates
+- Dynamic EvidenceDocument candidates such as ACLED events
 
 Dense retrieval:
     sentence-transformers/all-MiniLM-L6-v2
@@ -14,13 +12,15 @@ Reranking:
 """
 
 from __future__ import annotations
-import torch
+
 from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
 
 import numpy as np
+import torch
 from sentence_transformers import CrossEncoder
 
+from app.domain.models.evidence import EvidenceDocument
 from app.modules.retrieval.hybrid_retriever import HybridSearchResult
 
 
@@ -50,8 +50,16 @@ class RerankedSearchResult:
     ranks: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class RerankedEvidence:
+    """A cross-encoder reranked EvidenceDocument."""
+
+    evidence: EvidenceDocument
+    score: float
+
+
 class CrossEncoderReranker:
-    """Rerank hybrid retrieval candidates with a cross-encoder."""
+    """Rerank evidence candidates with a cross-encoder."""
 
     def __init__(
         self,
@@ -72,6 +80,7 @@ class CrossEncoderReranker:
 
         self._model_name = model_name
         self._batch_size = batch_size
+
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self._model = (
@@ -101,7 +110,7 @@ class CrossEncoderReranker:
         chunk_texts: dict[str, str],
         top_k: int = 20,
     ) -> list[RerankedSearchResult]:
-        """Rerank hybrid candidates using query/chunk text pairs."""
+        """Rerank hybrid retrieval candidates."""
 
         if top_k <= 0:
             return []
@@ -143,7 +152,6 @@ class CrossEncoderReranker:
                     text,
                 ]
             )
-
             valid_candidates.append(candidate)
 
         if not pairs:
@@ -186,12 +194,95 @@ class CrossEncoderReranker:
             )
         ]
 
-        # Highest cross-encoder score first.
-        # Chunk ID provides deterministic ordering for exact ties.
         results.sort(
             key=lambda result: (
                 -result.score,
                 result.chunk_id,
+            )
+        )
+
+        return results[:top_k]
+
+    def rerank_evidence(
+        self,
+        *,
+        query: str,
+        evidence: Sequence[EvidenceDocument],
+        top_k: int = 20,
+    ) -> list[RerankedEvidence]:
+        """Rerank EvidenceDocument objects with the cross-encoder."""
+
+        if top_k <= 0:
+            return []
+
+        if not query or not query.strip():
+            return []
+
+        if not evidence:
+            return []
+
+        pairs: list[list[str]] = []
+        valid_evidence: list[EvidenceDocument] = []
+
+        for document in evidence:
+            if not isinstance(document.text, str):
+                raise ValueError(
+                    f"Evidence text for '{document.id}' must be a string"
+                )
+
+            if not document.text.strip():
+                continue
+
+            pairs.append(
+                [
+                    query,
+                    document.text,
+                ]
+            )
+            valid_evidence.append(document)
+
+        if not pairs:
+            return []
+
+        scores = self._model.predict(
+            pairs,
+            batch_size=self._batch_size,
+            show_progress_bar=False,
+        )
+
+        scores_array = np.asarray(
+            scores,
+            dtype=np.float32,
+        ).reshape(-1)
+
+        if len(scores_array) != len(valid_evidence):
+            raise ValueError(
+                "Cross-encoder returned an unexpected number "
+                "of scores: "
+                f"expected={len(valid_evidence)}, "
+                f"got={len(scores_array)}"
+            )
+
+        if not np.all(np.isfinite(scores_array)):
+            raise ValueError(
+                "Cross-encoder returned non-finite scores"
+            )
+
+        results = [
+            RerankedEvidence(
+                evidence=document,
+                score=float(score),
+            )
+            for document, score in zip(
+                valid_evidence,
+                scores_array,
+            )
+        ]
+
+        results.sort(
+            key=lambda result: (
+                -result.score,
+                result.evidence.id,
             )
         )
 

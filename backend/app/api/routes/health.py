@@ -11,14 +11,23 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-router = APIRouter(tags=["health"])
+
+router = APIRouter(
+    tags=["health"],
+)
 
 
 class HealthResponse(BaseModel):
     status: str = "ok"
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+)
 async def health() -> HealthResponse:
     """Liveness check. Always returns 200 if the process is running."""
-    return HealthResponse(status="ok")
+
+    return HealthResponse(
+        status="ok",
+    )

@@ -1,4 +1,4 @@
-"""LangChain Ollama client for MIL-EVID."""
+"""LangChain Ollama client for MIL-EVID (OPTIMIZED)."""
 
 from __future__ import annotations
 
@@ -16,13 +16,13 @@ class OllamaClient:
         base_url: str,
         model: str,
         timeout_seconds: float = 120.0,
-        num_predict: int = 220,
+        num_predict: int = 300,  # OPTIMIZED: Increased from 220
         keep_alive: str = "24h",
     ) -> None:
         self._model = ChatOllama(
             model=model,
             base_url=base_url,
-            temperature=0.2,
+            temperature=0.3,  # OPTIMIZED: Slightly higher for detail (was 0.2)
             num_predict=num_predict,
             timeout=timeout_seconds,
             keep_alive=keep_alive,

@@ -238,3 +238,41 @@ def test_unknown_evidence_ids_are_removed() -> None:
 
     assert result[0].supporting_evidence_ids == ("e1",)
     assert result[0].verified is True
+
+def test_compound_claim_is_partially_supported() -> None:
+    llm = Mock()
+    llm.generate_structured.return_value = {
+        "results": [
+            {
+                "claim_index": 1,
+                "supporting_evidence_ids": ["e1"],
+                "support_score": 0.55,
+                "status": "PARTIALLY_SUPPORTED",
+            }
+        ]
+    }
+
+    verifier = ClaimVerifier(llm)
+
+    evidence = (
+        make_evidence(
+            "e1",
+            "A missile strike damaged civilian infrastructure "
+            "in Kharkiv.",
+        ),
+    )
+
+    result = verifier.verify(
+        claims=(
+            "A missile strike damaged civilian infrastructure "
+            "in Kharkiv and killed 20 civilians.",
+        ),
+        evidence=evidence,
+    )
+
+    assert len(result) == 1
+    assert result[0].status == (
+        ClaimVerificationStatus.PARTIALLY_SUPPORTED
+    )
+    assert result[0].supporting_evidence_ids == ("e1",)
+    assert result[0].verified is False

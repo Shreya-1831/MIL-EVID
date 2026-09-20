@@ -15,7 +15,7 @@ class EvidenceGuardResult:
 
 
 class EvidenceConsistencyGuard:
-    """Separates situation-relevant evidence from contextual evidence."""
+    """Keeps only evidence relevant to the requested situation."""
 
     def filter(
         self,
@@ -24,6 +24,7 @@ class EvidenceConsistencyGuard:
         evidence: tuple[AnalysisEvidence, ...],
         perspective: str | None = None,
     ) -> EvidenceGuardResult:
+
         query_entities = self._extract_entities(query)
         query_topics = self._extract_topics(query)
 
@@ -42,6 +43,7 @@ class EvidenceConsistencyGuard:
                 query_topics=query_topics,
                 evidence_topics=evidence_topics,
                 perspective=perspective,
+                evidence_source=item.source,
             ):
                 direct.append(item)
             else:
@@ -54,8 +56,6 @@ class EvidenceConsistencyGuard:
 
     @staticmethod
     def _extract_entities(text: str) -> set[str]:
-        """Extract common country/actor names relevant to military queries."""
-
         countries = {
             "india",
             "pakistan",
@@ -70,6 +70,8 @@ class EvidenceConsistencyGuard:
             "afghanistan",
             "turkey",
             "united states",
+            "united kingdom",
+            "uk",
             "usa",
             "north korea",
             "south korea",
@@ -85,9 +87,7 @@ class EvidenceConsistencyGuard:
 
     @staticmethod
     def _extract_topics(text: str) -> set[str]:
-        """Extract broad situation-level topics from military queries."""
-
-        topic_keywords = {
+        topics = {
             "artillery",
             "shelling",
             "airstrike",
@@ -106,7 +106,6 @@ class EvidenceConsistencyGuard:
             "border",
             "civilian",
             "civilians",
-            "civilian_infrastructure",
             "infrastructure",
             "populated",
             "population",
@@ -125,12 +124,6 @@ class EvidenceConsistencyGuard:
         }
 
         normalized = text.lower()
-
-        # Normalize common multi-word concepts.
-        normalized = normalized.replace(
-            "civilian infrastructure",
-            "civilian_infrastructure",
-        )
         normalized = normalized.replace(
             "international humanitarian law",
             "international_humanitarian_law",
@@ -138,7 +131,7 @@ class EvidenceConsistencyGuard:
 
         return {
             topic
-            for topic in topic_keywords
+            for topic in topics
             if re.search(rf"\b{re.escape(topic)}\b", normalized)
         }
 
@@ -150,23 +143,73 @@ class EvidenceConsistencyGuard:
         query_topics: set[str],
         evidence_topics: set[str],
         perspective: str | None = None,
+        evidence_source: str | None = None,
     ) -> bool:
-        """
-        Determine whether evidence is sufficiently aligned with the query.
 
-        Direct evidence requires:
-        1. Country/entity consistency.
-        2. At least one meaningful topic overlap.
+        # --------------------------------------------------------------
+        # MILITARY
+        # Only situation/event evidence should pass.
+        # UCDP GED / UCDP Dyadic / ACLED are military evidence sources.
+        # --------------------------------------------------------------
+        if perspective == "military":
 
-        For multi-country queries, all identified query countries must
-        appear in the evidence.
-        """
+            military_sources = {
+                "ucdp ged",
+                "ucdp dyadic",
+                "acled",
+            }
 
-        # If the query contains identifiable countries, the evidence
-        # must contain the same country set.
-        # Legal evidence can be generally applicable IHL doctrine.
-        # It does not need to mention the specific countries in the query.
-        if perspective != "legal" and query_entities:
+            source = (evidence_source or "").lower()
+
+            is_military_source = any(
+                name in source
+                for name in military_sources
+            )
+
+            if not is_military_source:
+                return False
+
+            if query_entities:
+                if not evidence_entities:
+                    return False
+
+                if len(query_entities) >= 2:
+                    if not query_entities.issubset(evidence_entities):
+                        return False
+                elif not query_entities.intersection(evidence_entities):
+                    return False
+
+            if query_topics:
+                if not evidence_topics:
+                    return False
+
+                if not query_topics.intersection(evidence_topics):
+                    return False
+
+            return True
+
+        # --------------------------------------------------------------
+        # LEGAL
+        # --------------------------------------------------------------
+        if perspective == "legal":
+
+            if query_entities and evidence_entities:
+                if len(query_entities) >= 2:
+                    if not query_entities.intersection(evidence_entities):
+                        return False
+
+            return True
+
+        # --------------------------------------------------------------
+        # HISTORICAL
+        # --------------------------------------------------------------
+        if perspective == "historical":
+            return bool(evidence_entities or evidence_topics)
+
+        # --------------------------------------------------------------
+        # DEFAULT
+        # --------------------------------------------------------------
+        if query_entities:
             if not evidence_entities:
                 return False
 
@@ -176,15 +219,11 @@ class EvidenceConsistencyGuard:
             elif not query_entities.intersection(evidence_entities):
                 return False
 
-        # Country consistency alone is not enough.
-        # Require meaningful situation/topic overlap.
         if query_topics:
             if not evidence_topics:
                 return False
 
-            topic_overlap = query_topics.intersection(evidence_topics)
-
-            if not topic_overlap:
+            if not query_topics.intersection(evidence_topics):
                 return False
 
         return True

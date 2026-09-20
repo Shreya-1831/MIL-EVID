@@ -11,11 +11,14 @@ from app.domain.models.analysis import (
 )
 from app.domain.models.evidence import EvidenceDocument
 from app.repositories.chunk_file_store import get_chunks_by_id
-from app.modules.retrieval.reranker import RerankedSearchResult
+from app.modules.retrieval.reranker import (
+    RerankedEvidence,
+    RerankedSearchResult,
+)
 
 
 class EvidenceContextBuilder:
-    """Resolve reranked chunk IDs into LLM-ready evidence context."""
+    """Resolve reranked evidence into LLM-ready evidence context."""
 
     def __init__(self, *, chunk_store_dir: Path) -> None:
         self._chunk_store_dir = chunk_store_dir
@@ -31,7 +34,7 @@ class EvidenceContextBuilder:
         query: str,
         reranked_results: Sequence[RerankedSearchResult],
     ) -> EvidenceContext:
-        """Build structured evidence context from reranked results."""
+        """Build structured evidence context from static reranked results."""
 
         if not query or not query.strip():
             return EvidenceContext(
@@ -77,13 +80,45 @@ class EvidenceContextBuilder:
             evidence=tuple(evidence),
         )
 
+    def build_dynamic(
+        self,
+        *,
+        query: str,
+        reranked_evidence: Sequence[RerankedEvidence],
+    ) -> EvidenceContext:
+        """Build evidence context from dynamically retrieved documents."""
+
+        if not query or not query.strip():
+            return EvidenceContext(
+                query=query,
+                evidence=(),
+            )
+
+        if not reranked_evidence:
+            return EvidenceContext(
+                query=query,
+                evidence=(),
+            )
+
+        evidence = tuple(
+            self._to_dynamic_analysis_evidence(
+                result=result,
+            )
+            for result in reranked_evidence
+        )
+
+        return EvidenceContext(
+            query=query,
+            evidence=evidence,
+        )
+
     @staticmethod
     def _to_analysis_evidence(
         *,
         result: RerankedSearchResult,
         chunk: EvidenceDocument,
     ) -> AnalysisEvidence:
-        """Convert retrieval and document data into analysis evidence."""
+        """Convert static retrieval data into analysis evidence."""
 
         return AnalysisEvidence(
             evidence_id=chunk.id,
@@ -99,4 +134,29 @@ class EvidenceContextBuilder:
             reranker_score=result.score,
             original_rrf_score=result.original_rrf_score,
             ranks=result.ranks,
+        )
+
+    @staticmethod
+    def _to_dynamic_analysis_evidence(
+        *,
+        result: RerankedEvidence,
+    ) -> AnalysisEvidence:
+        """Convert dynamic evidence into analysis evidence."""
+
+        evidence = result.evidence
+
+        return AnalysisEvidence(
+            evidence_id=evidence.id,
+            text=evidence.text,
+            source=evidence.source,
+            source_type=evidence.source_type,
+            perspective=evidence.perspective,
+            title=evidence.title,
+            date=evidence.date,
+            url=evidence.url,
+            document_id=evidence.document_id,
+            chunk_index=evidence.chunk_index,
+            reranker_score=result.score,
+            original_rrf_score=0.0,
+            ranks=(),
         )

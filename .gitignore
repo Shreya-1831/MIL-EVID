@@ -1,12 +1,17 @@
+# ==========================================
 # Environment
+# ==========================================
 
 .env
 .env.*
 !.env.example
 
-# Python
 
-**pycache**/
+# ==========================================
+# Python / Backend
+# ==========================================
+
+__pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
@@ -14,7 +19,10 @@ venv/
 .mypy_cache/
 .pytest_cache/
 
-# Data & indexes (generated, not committed)
+
+# ==========================================
+# Backend - Generated Data & Indexes
+# ==========================================
 
 backend/data/raw/*
 backend/data/processed/*
@@ -30,8 +38,80 @@ backend/indexes/bm25/*
 !backend/indexes/faiss/.gitkeep
 !backend/indexes/bm25/.gitkeep
 
-# OS / editor
+
+# ==========================================
+# Frontend - Build / Generated Files
+# ==========================================
+
+frontend/dist/
+frontend/tmp/
+frontend/out-tsc/
+frontend/*.tsbuildinfo
+frontend/.expo/
+frontend/.expo-shared/
+
+
+# ==========================================
+# Frontend - Dependencies
+# ==========================================
+
+frontend/node_modules/
+frontend/artifacts/mil-evid/node_modules
+
+
+# ==========================================
+# IDEs / Editors
+# ==========================================
+
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+
+# ==========================================
+# Frontend / Framework Specific
+# ==========================================
+
+frontend/.sass-cache/
+frontend/connect.lock
+frontend/coverage/
+frontend/libpeerconnection.log
+frontend/typings/
+
+frontend/npm-debug.log
+frontend/yarn-error.log
+frontend/testem.log
+
+
+# ==========================================
+# Nx / Cursor
+# ==========================================
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+
+# ==========================================
+# Replit
+# ==========================================
+
+.cache/
+.local/
+
+
+# ==========================================
+# System Files
+# ==========================================
 
 .DS_Store
-.idea/
-.vscode/
+Thumbs.db

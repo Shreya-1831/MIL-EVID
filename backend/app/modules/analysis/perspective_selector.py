@@ -19,7 +19,7 @@ class PerspectiveCandidateSelection:
 
 
 class PerspectiveAwareCandidateSelector:
-    """Preserve relevant multi-perspective candidates before reranking."""
+    """Preserve perspective, entity and source diversity before reranking."""
 
     _PERSPECTIVE_KEYWORDS = {
         "military": {
@@ -28,7 +28,8 @@ class PerspectiveAwareCandidateSelector:
             "offensive", "defensive", "defense", "defence", "escalation",
             "operation", "operations", "weapon", "weapons", "artillery",
             "shelling", "airstrike", "airstrikes", "missile", "missiles",
-            "casualties",
+            "casualties", "arms", "armaments", "military expenditure",
+            "military spending",
         },
         "legal": {
             "legal", "law", "lawful", "unlawful", "legality", "ihl",
@@ -39,11 +40,28 @@ class PerspectiveAwareCandidateSelector:
             "rights",
         },
         "historical": {
-            "historical", "history", "past", "previous", "prior", "background",
-            "origins", "precedent", "precedents", "timeline", "evolution",
-            "escalation", "conflict", "conflicts", "ceasefire", "peace",
-            "agreement", "agreements", "settlement", "settlements",
+            "historical", "history", "past", "previous", "prior",
+            "background", "origins", "origin", "precedent", "precedents",
+            "timeline", "evolution", "escalation", "conflict", "conflicts",
+            "ceasefire", "peace", "agreement", "agreements", "settlement",
+            "settlements",
         },
+    }
+
+    _SOURCE_PRIORITY = {
+        "military": ("UCDP GED", "UCDP Dyadic", "SIPRI", "ACLED"),
+        "legal": ("ICRC IHL Treaty", "ICRC Customary IHL"),
+        "historical": (
+            "UN Peacemaker", "UCDP GED", "UCDP Dyadic", "SIPRI", "ACLED",
+        ),
+    }
+
+    _HISTORICAL_SOURCES = {
+        "UN Peacemaker",
+        "UCDP GED",
+        "UCDP Dyadic",
+        "SIPRI",
+        "ACLED",
     }
 
     def __init__(
@@ -51,19 +69,34 @@ class PerspectiveAwareCandidateSelector:
         *,
         preserve_per_perspective: int = 5,
         max_candidates: int = 30,
+        min_sources_per_perspective: int = 2,
     ) -> None:
         if preserve_per_perspective <= 0:
-            raise ValueError(
-                "preserve_per_perspective must be greater than 0"
-            )
-
+            raise ValueError("preserve_per_perspective must be greater than 0")
         if max_candidates <= 0:
-            raise ValueError(
-                "max_candidates must be greater than 0"
-            )
+            raise ValueError("max_candidates must be greater than 0")
+        if min_sources_per_perspective <= 0:
+            raise ValueError("min_sources_per_perspective must be greater than 0")
 
         self._preserve_per_perspective = preserve_per_perspective
         self._max_candidates = max_candidates
+        self._min_sources_per_perspective = min_sources_per_perspective
+
+    @staticmethod
+    def _query_entities(query: str) -> set[str]:
+        text = query.lower()
+        entities = set()
+
+        for entity in (
+            "russia", "ukraine", "china", "india", "pakistan",
+            "israel", "palestine", "iran", "afghanistan",
+            "united states", "usa", "uk", "france", "germany",
+            "colombia",
+        ):
+            if re.search(rf"\b{re.escape(entity)}\b", text):
+                entities.add(entity)
+
+        return entities
 
     def select(
         self,
@@ -72,79 +105,167 @@ class PerspectiveAwareCandidateSelector:
         candidates: Sequence[HybridSearchResult],
         evidence_by_id: Mapping[str, EvidenceDocument] | None = None,
     ) -> PerspectiveCandidateSelection:
-        """Select relevant candidates for the requested perspectives."""
-        if not query or not query.strip() or not candidates:
-            return PerspectiveCandidateSelection(
-                candidates=tuple(),
-                requested_perspectives=tuple(),
-            )
+        """Select candidates while enforcing perspective, entity and source diversity."""
 
+        if not query or not query.strip() or not candidates:
+            return PerspectiveCandidateSelection(tuple(), tuple())
+
+        evidence_by_id = evidence_by_id or {}
+        query_entities = self._query_entities(query)
         requested = self._detect_requested_perspectives(query)
 
         if not requested:
             return PerspectiveCandidateSelection(
-                candidates=tuple(candidates[: self._max_candidates]),
-                requested_perspectives=tuple(),
+                tuple(candidates[: self._max_candidates]),
+                tuple(),
             )
-
-        evidence_by_id = evidence_by_id or {}
 
         selected: list[HybridSearchResult] = []
         selected_ids: set[str] = set()
 
+        # Reserve candidates for every requested perspective.
         for perspective in requested:
-            perspective_candidates = [
-                candidate
-                for candidate in candidates
-                if candidate.chunk_id not in selected_ids
-                and self._candidate_matches_perspective(
-                    candidate=candidate,
+            pool = [
+                c for c in candidates
+                if self._candidate_matches_perspective(
+                    candidate=c,
                     perspective=perspective,
                     evidence_by_id=evidence_by_id,
+                    query_entities=query_entities,
                 )
             ]
 
-            for candidate in perspective_candidates[
-                : self._preserve_per_perspective
-            ]:
-                selected.append(candidate)
-                selected_ids.add(candidate.chunk_id)
+            if not pool:
+                continue
+
+            source_groups: dict[str, list[HybridSearchResult]] = {}
+            for candidate in pool:
+                source = self._get_source(
+                    candidate=candidate,
+                    evidence_by_id=evidence_by_id,
+                )
+                source_groups.setdefault(source, []).append(candidate)
+
+            ordered_sources = self._order_sources(
+                perspective=perspective,
+                sources=list(source_groups),
+            )
+
+            added = 0
+
+            # First preserve source diversity.
+            for source in ordered_sources:
+                for candidate in source_groups[source]:
+                    if candidate.chunk_id in selected_ids:
+                        continue
+
+                    selected.append(candidate)
+                    selected_ids.add(candidate.chunk_id)
+                    added += 1
+                    break
+
+                if added >= min(
+                    self._min_sources_per_perspective,
+                    self._preserve_per_perspective,
+                ):
+                    break
 
                 if len(selected) >= self._max_candidates:
                     break
 
+            # Then fill the perspective quota.
+            for candidate in pool:
+                if len(selected) >= self._max_candidates:
+                    break
+                if candidate.chunk_id in selected_ids:
+                    continue
+
+                selected.append(candidate)
+                selected_ids.add(candidate.chunk_id)
+                added += 1
+
+                if added >= self._preserve_per_perspective:
+                    break
+
+        # Fill remaining capacity using original hybrid ranking,
+        # but only with candidates relevant to a requested perspective.
+        for candidate in candidates:
             if len(selected) >= self._max_candidates:
                 break
+            if candidate.chunk_id in selected_ids:
+                continue
+
+            if any(
+                self._candidate_matches_perspective(
+                    candidate=candidate,
+                    perspective=perspective,
+                    evidence_by_id=evidence_by_id,
+                    query_entities=query_entities,
+                )
+                for perspective in requested
+            ):
+                selected.append(candidate)
+                selected_ids.add(candidate.chunk_id)
 
         return PerspectiveCandidateSelection(
-            candidates=tuple(selected),
+            candidates=tuple(selected[: self._max_candidates]),
             requested_perspectives=tuple(requested),
         )
 
-    def _detect_requested_perspectives(
+    def _get_source(
         self,
-        query: str,
+        *,
+        candidate: HybridSearchResult,
+        evidence_by_id: Mapping[str, EvidenceDocument],
+    ) -> str:
+        evidence = evidence_by_id.get(candidate.chunk_id)
+
+        if evidence is not None and evidence.source:
+            return evidence.source
+
+        normalized = candidate.chunk_id.lower()
+
+        if normalized.startswith("ucdp-ged-"):
+            return "UCDP GED"
+        if normalized.startswith("ucdp-dyadic-"):
+            return "UCDP Dyadic"
+        if normalized.startswith("sipri-"):
+            return "SIPRI"
+        if normalized.startswith("icrc::"):
+            return "ICRC"
+        if normalized.startswith("un_peacemaker::"):
+            return "UN Peacemaker"
+        if normalized.startswith("acled"):
+            return "ACLED"
+
+        return "unknown"
+
+    def _order_sources(
+        self,
+        *,
+        perspective: str,
+        sources: Sequence[str],
     ) -> list[str]:
-        """Detect perspectives explicitly or implicitly requested by query."""
+        source_set = set(sources)
+        ordered = [
+            source
+            for source in self._SOURCE_PRIORITY.get(perspective, ())
+            if source in source_set
+        ]
 
+        ordered.extend(source for source in sources if source not in ordered)
+        return ordered
+
+    def _detect_requested_perspectives(self, query: str) -> list[str]:
         normalized = self._normalize(query)
-
-        detected: list[str] = []
-
-        for perspective in (
-            "military",
-            "legal",
-            "historical",
-        ):
-            keywords = self._PERSPECTIVE_KEYWORDS[perspective]
-
+        return [
+            perspective
+            for perspective in ("military", "legal", "historical")
             if any(
                 self._contains_keyword(normalized, keyword)
-                for keyword in keywords
-            ):
-                detected.append(perspective)
-
-        return detected
+                for keyword in self._PERSPECTIVE_KEYWORDS[perspective]
+            )
+        ]
 
     def _candidate_matches_perspective(
         self,
@@ -152,35 +273,61 @@ class PerspectiveAwareCandidateSelector:
         candidate: HybridSearchResult,
         perspective: str,
         evidence_by_id: Mapping[str, EvidenceDocument],
+        query_entities: set[str] | None = None,
     ) -> bool:
-        """Determine whether evidence supports the requested perspective."""
         evidence = evidence_by_id.get(candidate.chunk_id)
 
         if evidence is not None:
-            if evidence.source in {"UCDP GED", "UCDP Dyadic"}:
-                return perspective == "military"
-
-            if evidence.perspective is not None:
-                return evidence.perspective.value == perspective
-
+            source = evidence.source
             text = " ".join(
-                filter(
-                    None,
-                    (
-                        evidence.title,
-                        evidence.text,
-                        evidence.source,
-                    ),
-                )
+                filter(None, (evidence.title, evidence.text, source))
             ).lower()
 
-            keywords = self._PERSPECTIVE_KEYWORDS[perspective]
+            # Historical evidence must be situation-specific.
+            # Military perspective must allow conflict/event datasets directly.
+            if perspective == "military":
+                if source in {"UCDP GED", "UCDP Dyadic", "ACLED"}:
+                    return True
+            if perspective == "historical":
+                if source not in self._HISTORICAL_SOURCES:
+                    return False
 
-            if any(
-                self._contains_keyword(text, keyword)
-                for keyword in keywords
-            ):
+                # Check both evidence text/metadata and the candidate ID.
+                searchable = " ".join(
+                    (
+                        text,
+                        candidate.chunk_id.lower(),
+                        evidence.title.lower() if evidence.title else "",
+                    )
+                )
+
+                if query_entities:
+                    entity_match = any(
+                        re.search(
+                            rf"\b{re.escape(entity)}\b",
+                            searchable,
+                        )
+                        for entity in query_entities
+                    )
+
+                    if not entity_match:
+                        return False
+
                 return True
+
+            # Structured conflict/event datasets are military evidence.
+            if source in {"UCDP GED", "UCDP Dyadic", "SIPRI", "ACLED"}:
+                return perspective == "military"
+
+            # Explicit perspective metadata wins.
+            if evidence.perspective is not None:
+                if evidence.perspective.value == perspective:
+                    return True
+
+            return any(
+                self._contains_keyword(text, keyword)
+                for keyword in self._PERSPECTIVE_KEYWORDS[perspective]
+            )
 
         return self._candidate_id_matches_perspective(
             candidate.chunk_id,
@@ -192,8 +339,6 @@ class PerspectiveAwareCandidateSelector:
         chunk_id: str,
         perspective: str,
     ) -> bool:
-        """Legacy fallback for candidates without resolvable metadata."""
-
         normalized = chunk_id.lower()
 
         if normalized.startswith("icrc::"):
@@ -211,11 +356,9 @@ class PerspectiveAwareCandidateSelector:
         if normalized.startswith("acled"):
             return perspective in {"historical", "military"}
 
-        keywords = self._PERSPECTIVE_KEYWORDS[perspective]
-
         return any(
             self._contains_keyword(normalized, keyword)
-            for keyword in keywords
+            for keyword in self._PERSPECTIVE_KEYWORDS[perspective]
         )
 
     @staticmethod
@@ -224,14 +367,9 @@ class PerspectiveAwareCandidateSelector:
 
     @staticmethod
     def _contains_keyword(text: str, keyword: str) -> bool:
-        normalized_keyword = " ".join(keyword.lower().split())
+        keyword = " ".join(keyword.lower().split())
 
-        if " " in normalized_keyword:
-            return normalized_keyword in text
+        if " " in keyword:
+            return keyword in text
 
-        return bool(
-            re.search(
-                rf"\b{re.escape(normalized_keyword)}\b",
-                text,
-            )
-        )
+        return bool(re.search(rf"\b{re.escape(keyword)}\b", text))

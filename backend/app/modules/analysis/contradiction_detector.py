@@ -20,7 +20,8 @@ logger = logging.getLogger("mil_evid")
 class ContradictionDetector:
     """Detect contradictions between the most relevant evidence items."""
 
-    MAX_COMPARISONS = 6
+    # MAX_COMPARISONS = 6
+    MAX_COMPARISONS = 3
 
     # UCDP Dyadic records commonly encode the dyad and annual record
     # year directly in the evidence ID, for example:
@@ -29,8 +30,14 @@ class ContradictionDetector:
         r"^ucdp-dyadic-(?P<dyad>.+)-(?P<year>\d{4})::",
         re.IGNORECASE,
     )
+
     _UCDP_GED_ID_PATTERN = re.compile(
         r"^ucdp-ged-(?P<event_id>\d+)::",
+        re.IGNORECASE,
+    )
+
+    _ACLED_ID_PATTERN = re.compile(
+        r"^acled-(?P<event_id>[^:]+)",
         re.IGNORECASE,
     )
 
@@ -70,6 +77,12 @@ class ContradictionDetector:
         if len(evidence) <= 4:
             for index, evidence_a in enumerate(evidence):
                 for evidence_b in evidence[index + 1:]:
+                    if self._should_skip_pair(
+                        evidence_a,
+                        evidence_b,
+                    ):
+                        continue
+
                     pairs.append((evidence_a, evidence_b))
 
                     if len(pairs) >= self.MAX_COMPARISONS:
@@ -84,7 +97,10 @@ class ContradictionDetector:
             evidence_a = evidence[index]
             evidence_b = evidence[index + 1]
 
-            if self._should_skip_pair(evidence_a, evidence_b):
+            if self._should_skip_pair(
+                evidence_a,
+                evidence_b,
+            ):
                 logger.debug(
                     "Skipping non-comparable evidence pair: %s vs %s",
                     evidence_a.evidence_id,
@@ -109,7 +125,10 @@ class ContradictionDetector:
             if pair in pairs:
                 continue
 
-            if self._should_skip_pair(strongest, item):
+            if self._should_skip_pair(
+                strongest,
+                item,
+            ):
                 logger.debug(
                     "Skipping non-comparable evidence pair: %s vs %s",
                     strongest.evidence_id,
@@ -127,7 +146,10 @@ class ContradictionDetector:
             first = evidence[0]
             second = evidence[1]
 
-            if not self._should_skip_pair(first, second):
+            if not self._should_skip_pair(
+                first,
+                second,
+            ):
                 pairs.append((first, second))
 
         return pairs[: self.MAX_COMPARISONS]
@@ -138,13 +160,7 @@ class ContradictionDetector:
         evidence_a: AnalysisEvidence,
         evidence_b: AnalysisEvidence,
     ) -> bool:
-        """
-        Identify evidence pairs that should not be treated as contradictions.
-
-        UCDP Dyadic annual records represent observations for a particular
-        dyad/year. The same dyad appearing in different annual records is
-        not contradictory merely because the record years differ.
-        """
+        """Identify evidence pairs that should not be compared."""
 
         if cls._is_different_year_ucdp_dyadic_pair(
             evidence_a,
@@ -152,7 +168,13 @@ class ContradictionDetector:
         ):
             return True
 
-        return cls._is_different_ucdp_ged_event_pair(
+        if cls._is_different_ucdp_ged_event_pair(
+            evidence_a,
+            evidence_b,
+        ):
+            return True
+
+        return cls._is_different_acled_event_pair(
             evidence_a,
             evidence_b,
         )
@@ -243,6 +265,45 @@ class ContradictionDetector:
         return True
 
     @classmethod
+    def _is_different_acled_event_pair(
+        cls,
+        evidence_a: AnalysisEvidence,
+        evidence_b: AnalysisEvidence,
+    ) -> bool:
+        """Return True when ACLED records refer to different events."""
+
+        source_a = str(evidence_a.source).strip().casefold()
+        source_b = str(evidence_b.source).strip().casefold()
+
+        if source_a != "acled" or source_b != "acled":
+            return False
+
+        match_a = cls._ACLED_ID_PATTERN.match(
+            str(evidence_a.evidence_id).strip()
+        )
+        match_b = cls._ACLED_ID_PATTERN.match(
+            str(evidence_b.evidence_id).strip()
+        )
+
+        if match_a is None or match_b is None:
+            return False
+
+        event_a = match_a.group("event_id")
+        event_b = match_b.group("event_id")
+
+        if event_a == event_b:
+            return False
+
+        logger.info(
+            "ACLED records identified as distinct events: "
+            "%s vs %s.",
+            evidence_a.evidence_id,
+            evidence_b.evidence_id,
+        )
+
+        return True
+
+    @classmethod
     def _potentially_comparable(
         cls,
         evidence_a: AnalysisEvidence,
@@ -309,6 +370,7 @@ class ContradictionDetector:
             "Do NOT use general world knowledge.\n"
             "Do NOT infer missing facts.\n"
             "Do NOT assume either evidence item is correct.\n\n"
+
             "A contradiction requires incompatible claims about the same "
             "or directly comparable subject.\n"
             "Differences in wording are NOT contradictions.\n"
@@ -318,18 +380,14 @@ class ContradictionDetector:
             "A temporal difference is a contradiction only when the "
             "evidence describes incompatible states for the same "
             "time-sensitive fact.\n\n"
-            "IMPORTANT UCDP RULE:\n"
+
+            "IMPORTANT UCDP DYADIC RULE:\n"
             "UCDP Dyadic records may represent the same dyad in different "
             "annual records. A difference between annual record years is "
             "NOT by itself a contradiction. Do not classify annual UCDP "
             "records as contradictory merely because one record is from "
             "2023 and another is from 2025.\n\n"
-            "Return exactly one result for every supplied pair.\n"
-            "pair_index must match the supplied pair number.\n\n"
-            "status must be exactly one of:\n"
-            "ENTAILMENT, CONTRADICTION, NEUTRAL\n\n"
-            "contradiction_type must be exactly one of:\n"
-            "FACTUAL, TEMPORAL, UNCERTAIN, NONE\n\n"
+
             "IMPORTANT UCDP GED RULE:\n"
             "UCDP GED records identify individual conflict events. "
             "Different UCDP GED event IDs represent different event "
@@ -338,12 +396,34 @@ class ContradictionDetector:
             "locations, wording, or casualty information. Differences "
             "between distinct GED event records are NOT by themselves "
             "contradictions.\n\n"
+
+            "IMPORTANT ACLED RULE:\n"
+            "ACLED records identify individual conflict events. "
+            "Different ACLED event IDs represent different event "
+            "records. Do not classify two different ACLED event IDs as "
+            "the same event merely because they have similar actors, "
+            "locations, wording, or casualty information. Differences "
+            "between distinct ACLED event records are NOT by themselves "
+            "contradictions.\n\n"
+
+            "IMPORTANT CROSS-SOURCE RULE:\n"
+            "UCDP GED and ACLED are independent event databases. "
+            "Do not treat two records as the same event merely because "
+            "they share actors, locations, wording, event types, or "
+            "casualty information. Different dates are NOT by themselves "
+            "a contradiction. Only classify a contradiction when the "
+            "evidence directly supports incompatible factual claims about "
+            "the same identifiable event or directly comparable fact.\n\n"
+
             "Return exactly one result for every supplied pair.\n"
             "pair_index must match the supplied pair number.\n\n"
+
             "status must be exactly one of:\n"
             "ENTAILMENT, CONTRADICTION, NEUTRAL\n\n"
+
             "contradiction_type must be exactly one of:\n"
             "FACTUAL, TEMPORAL, UNCERTAIN, NONE\n\n"
+
             "score must be a number from 0.0 to 1.0.\n"
             "explanation must be short and based only on the evidence.\n"
         )
@@ -364,14 +444,15 @@ class ContradictionDetector:
                         f"Source: {evidence_a.source}",
                         f"Title: {evidence_a.title}",
                         f"Date: {evidence_a.date}",
-                        f"Text: {evidence_a.text}",
+                        f"Text: {evidence_a.text[:1500]}",
                         "",
                         "EVIDENCE B",
                         f"ID: {evidence_b.evidence_id}",
                         f"Source: {evidence_b.source}",
                         f"Title: {evidence_b.title}",
                         f"Date: {evidence_b.date}",
-                        f"Text: {evidence_b.text}",
+                        # f"Text: {evidence_b.text}",
+                        f"Text: {evidence_b.text[:1500]}",
                     ]
                 )
             )
@@ -498,11 +579,18 @@ class ContradictionDetector:
             # Deterministic guard takes precedence over the LLM.
             #
             # This prevents an LLM classification such as:
-            #   2025 UCDP Dyadic vs 2023 UCDP Dyadic
+            #   different UCDP Dyadic annual records
             #   -> CONTRADICTION
             #
-            # from becoming a false contradiction in the final analysis.
-            if self._should_skip_pair(evidence_a, evidence_b):
+            # or:
+            #   different UCDP GED/ACLED event records
+            #   -> CONTRADICTION
+            #
+            # from becoming a false contradiction.
+            if self._should_skip_pair(
+                evidence_a,
+                evidence_b,
+            ):
                 results.append(
                     self._non_comparable_pair_result(
                         evidence_a,
@@ -558,19 +646,26 @@ class ContradictionDetector:
     ) -> ContradictionResult:
         """Return a neutral result for a known non-comparable pair."""
 
-        source = str(evidence_a.source).strip().casefold()
+        source_a = str(evidence_a.source).strip().casefold()
+        source_b = str(evidence_b.source).strip().casefold()
 
-        if source == "ucdp dyadic":
+        if source_a == "ucdp dyadic" and source_b == "ucdp dyadic":
             explanation = (
                 "These UCDP Dyadic records represent different annual "
                 "records for the same dyad; a difference in record year "
                 "does not by itself establish a contradiction."
             )
-        elif source == "ucdp ged":
+        elif source_a == "ucdp ged" and source_b == "ucdp ged":
             explanation = (
                 "These UCDP GED records represent distinct conflict "
                 "events; differences between separate event records "
                 "do not by themselves establish a contradiction."
+            )
+        elif source_a == "acled" and source_b == "acled":
+            explanation = (
+                "These ACLED records represent distinct events; "
+                "differences between separate event records do not "
+                "by themselves establish a contradiction."
             )
         else:
             explanation = (
@@ -692,13 +787,12 @@ class ContradictionDetector:
         """Extract important military/conflict terms."""
 
         important_terms = {
-            "ukraine", "russia", "civilian", "civilians",
-            "residential", "infrastructure", "attack",
-            "attacks", "fatality", "fatalities", "killed",
-            "injured", "government", "military", "forces",
-            "artillery", "shelling", "airstrike", "missile",
-            "drone", "conflict", "escalation", "damage",
-            "destroyed", "death", "deaths",
+            "civilian", "civilians", "residential", "infrastructure", "attack", "attacks", 
+            "fatality", "fatalities", "killed", "injured", "government", "military", "forces", 
+            "artillery", "shelling", "airstrike", "missile", "drone", "conflict", "escalation", 
+            "damage", "destroyed", "death", "deaths","ukraine", "russia", "india", "pakistan", 
+            "israel", "palestine", "china", "united kingdom", "united states", "france", "germany", 
+            "colombia", "afghanistan"
         }
 
         return {

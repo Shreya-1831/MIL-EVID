@@ -6,7 +6,7 @@ from app.domain.enums import Perspective
 
 
 class PerspectiveQueryBuilder:
-    """Build perspective- and source-aware retrieval queries."""
+    """Build query-specific retrieval queries for each perspective."""
 
     _TERMS = {
         Perspective.MILITARY: (
@@ -14,36 +14,64 @@ class PerspectiveQueryBuilder:
             "weapons combat fighting casualties capabilities "
             "arms transfers weapons transfers military equipment "
             "defense procurement suppliers recipients deliveries "
-            "UCDP SIPRI"
+            "conflict intensity military actors"
         ),
         Perspective.LEGAL: (
             "international humanitarian law IHL civilian protection "
             "distinction proportionality precautions targeting "
-            "civilian objects responsibility lawful unlawful "
-            "war crimes ICRC"
-        ),
-        Perspective.HISTORICAL: (
-            "historical background chronology conflict escalation "
-            "ceasefire agreement settlement peace process diplomacy "
-            "Minsk agreement Minsk II negotiation political settlement "
-            "eastern Ukraine Russia Ukraine conflict timeline "
-            "UN Peacemaker"
+            "civilian objects military objectives responsibility "
+            "lawful unlawful attacks war crimes "
+            "protection of civilians ICRC"
         ),
     }
+
+    _HISTORICAL_TERMS = (
+        "historical context chronology timeline origins "
+        "developments escalation turning points "
+        "ceasefire agreements peace negotiations "
+        "peace settlement diplomatic efforts "
+        "prior agreements historical events conflict trajectory"
+    )
+
+    _HISTORICAL_FOCUS_QUERIES = (
+        "historical context chronology origins developments",
+        "ceasefire agreements peace negotiations settlements",
+        "historical events turning points conflict trajectory",
+    )
 
     def build(
         self,
         query: str,
         perspectives: tuple[Perspective, ...],
-    ) -> dict[Perspective, str]:
-        """Build one focused query per perspective."""
+    ) -> dict[Perspective, str | tuple[str, ...]]:
+        """Build query-specific focused retrieval queries."""
 
-        normalized_query = " ".join(query.strip().split())
+        normalized_query = " ".join(
+            query.strip().split()
+        )
 
-        return {
-            perspective: (
-                f"{normalized_query} "
-                f"{self._TERMS.get(perspective, '')}"
+        result: dict[
+            Perspective,
+            str | tuple[str, ...],
+        ] = {}
+
+        for perspective in perspectives:
+
+            if perspective == Perspective.HISTORICAL:
+                result[perspective] = tuple(
+                    f"{normalized_query} {focus}"
+                    for focus in self._HISTORICAL_FOCUS_QUERIES
+                )
+
+                continue
+
+            perspective_terms = self._TERMS.get(
+                perspective,
+                "",
+            )
+
+            result[perspective] = (
+                f"{normalized_query} {perspective_terms}"
             ).strip()
-            for perspective in perspectives
-        }
+
+        return result

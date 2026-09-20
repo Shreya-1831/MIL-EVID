@@ -180,14 +180,33 @@ class ClaimVerifier:
             "Do NOT infer missing facts.\n"
             "Do NOT assume a claim is true.\n"
             "Do NOT combine unrelated evidence records.\n\n"
+
             "SUPPORTED:\n"
-            "The supplied evidence directly supports the entire claim.\n\n"
+            "The supplied evidence directly supports the entire claim, "
+            "including every factual assertion, actor, action, location, "
+            "date, number, and causal relationship stated in the claim.\n\n"
+
             "PARTIALLY_SUPPORTED:\n"
-            "The evidence supports only part of the claim, or an "
-            "important detail is not fully supported.\n\n"
+            "The evidence supports only some of the factual assertions "
+            "in the claim. Use this status whenever a compound claim "
+            "contains multiple facts and at least one important fact is "
+            "not directly supported.\n\n"
+
+            "IMPORTANT COMPOUND-CLAIM RULE:\n"
+            "Treat claims containing multiple factual assertions joined by "
+            "words such as 'and', 'while', 'but', 'because', 'which', or "
+            "similar connectors as compound claims.\n"
+            "Evaluate every assertion separately before assigning the status.\n"
+            "Do NOT mark a compound claim SUPPORTED merely because one part "
+            "of the claim is supported.\n"
+            "If one important assertion is unsupported, use "
+            "PARTIALLY_SUPPORTED.\n"
+            "If none of the assertions is supported, use UNSUPPORTED.\n\n"
+
             "UNSUPPORTED:\n"
             "The supplied evidence does not sufficiently support "
             "the claim.\n\n"
+
             "IMPORTANT RULES:\n"
             "1. Check every claim against its supplied evidence.\n"
             "2. Only use evidence IDs belonging to that claim.\n"
@@ -195,17 +214,17 @@ class ClaimVerifier:
             "4. A SUPPORTED claim requires at least one directly "
             "supporting evidence ID.\n"
             "5. Do not treat different events as contradictory.\n"
-            "6. Do not combine facts from unrelated events.\n"
+            "6. Do not combine facts from unrelated evidence records.\n"
             "7. Exact dates, numbers, locations, and actors must be "
             "supported by the evidence.\n"
             "8. If evidence is insufficient, use UNSUPPORTED.\n\n"
+
             "Return exactly one result for every claim.\n"
             "claim_index must match the supplied claim number.\n\n"
             "support_score must be between 0.0 and 1.0.\n"
             "status must be exactly one of SUPPORTED, "
             "PARTIALLY_SUPPORTED, UNSUPPORTED."
         )
-
         claim_sections: list[str] = []
 
         for index, claim, relevant in items:

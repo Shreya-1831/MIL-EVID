@@ -554,6 +554,34 @@ def test_analyzer_requires_atomic_claims_in_prompt() -> None:
     assert "one independently verifiable fact" in system_prompt
     assert "each generated claim" in user_prompt
 
+def test_analyzer_rejects_compound_factual_claim() -> None:
+    claim = (
+        "The attack damaged civilian infrastructure "
+        "and killed 20 civilians."
+    )
+
+    assert EvidenceAnalyzer._is_non_atomic_claim(claim) is True
+
+
+def test_analyzer_rejects_event_and_outcome_compound_claim() -> None:
+    claim = (
+        "The event occurred in Kharkiv "
+        "and damaged civilian infrastructure."
+    )
+
+    assert EvidenceAnalyzer._is_non_atomic_claim(claim) is True
+
+
+def test_analyzer_allows_multiple_actors_in_atomic_claim() -> None:
+    claim = "India and Pakistan agreed to maintain the ceasefire."
+
+    assert EvidenceAnalyzer._is_non_atomic_claim(claim) is False
+
+
+def test_analyzer_allows_multiple_actors_with_atomic_action() -> None:
+    claim = "Russia and Ukraine signed a ceasefire agreement."
+
+    assert EvidenceAnalyzer._is_non_atomic_claim(claim) is False
 
 def test_analyzer_blocks_malformed_date_generation() -> None:
     llm = make_llm()

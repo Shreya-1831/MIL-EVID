@@ -1,12 +1,19 @@
-"""Fast orchestration service for evidence-grounded analysis."""
+"""Fast orchestration service for evidence-grounded analysis (OPTIMIZED)."""
 
 from __future__ import annotations
 
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from uuid import UUID
 
 from app.domain.enums import Perspective
-from app.domain.models.analysis import Citation, EvidenceContext, FinalAnalysisResponse
+from app.domain.models.analysis import (
+    Citation,
+    EvidenceContext,
+    FinalAnalysisResponse,
+)
 from app.domain.models.query import QueryClassification
 from app.modules.analysis.analyzer import EvidenceAnalyzer
 from app.modules.analysis.claim_verifier import ClaimVerifier
@@ -14,10 +21,16 @@ from app.modules.analysis.confidence_scorer import ConfidenceScorer
 from app.modules.analysis.context_builder import EvidenceContextBuilder
 from app.modules.analysis.contradiction_detector import ContradictionDetector
 from app.modules.analysis.evidence_guard import EvidenceConsistencyGuard
-from app.modules.analysis.perspective_selector import PerspectiveAwareCandidateSelector
-from app.modules.analysis.post_rerank_perspective_selector import PostRerankPerspectiveSelector
+from app.modules.analysis.perspective_selector import (
+    PerspectiveAwareCandidateSelector,
+)
+from app.modules.analysis.post_rerank_perspective_selector import (
+    PostRerankPerspectiveSelector,
+)
+from app.modules.retrieval.acled_retriever import ACLEDDynamicRetriever
 from app.modules.retrieval.perspective_retriever import PerspectiveAwareRetriever
 from app.modules.retrieval.reranker import CrossEncoderReranker
+from app.repositories.analysis_repository import AnalysisRepository
 from app.repositories.chunk_file_store import get_chunks_by_id
 
 logger = logging.getLogger("mil_evid")
@@ -30,6 +43,7 @@ class AnalysisService:
         self,
         *,
         perspective_retriever: PerspectiveAwareRetriever,
+        acled_retriever: ACLEDDynamicRetriever | None = None,
         reranker: CrossEncoderReranker,
         perspective_selector: PerspectiveAwareCandidateSelector,
         post_rerank_perspective_selector: PostRerankPerspectiveSelector,
@@ -39,26 +53,35 @@ class AnalysisService:
         contradiction_detector: ContradictionDetector,
         confidence_scorer: ConfidenceScorer,
         claim_verifier: ClaimVerifier,
-        rerank_candidate_k: int = 15,
+        rerank_candidate_k: int = 10,
+        skip_claim_verification: bool = False,
     ) -> None:
         self._perspective_retriever = perspective_retriever
+        self._acled_retriever = acled_retriever
         self._reranker = reranker
         self._context_builder = context_builder
         self._analyzer = analyzer
         self._evidence_guard = evidence_guard
         self._perspective_selector = perspective_selector
-        self._post_rerank_perspective_selector = post_rerank_perspective_selector
+        self._post_rerank_perspective_selector = (
+            post_rerank_perspective_selector
+        )
         self._contradiction_detector = contradiction_detector
         self._confidence_scorer = confidence_scorer
         self._claim_verifier = claim_verifier
         self._rerank_candidate_k = max(1, rerank_candidate_k)
+        self._skip_claim_verification = skip_claim_verification
 
     def build_context(
         self,
         *,
         query: str,
-        retrieval_top_k: int = 15,
-        rerank_top_k: int = 4,
+        retrieval_top_k: int = 50,  # OPTIMIZED: Reduced from 100
+        rerank_top_k: int = 8,
+        acled_country: str | None = None,
+        acled_start_date: str | None = None,
+        acled_end_date: str | None = None,
+        acled_updated_since: str | None = None,
     ) -> EvidenceContext:
         """Retrieve, rerank, select, and consistency-check compact evidence."""
         started = time.perf_counter()
@@ -69,19 +92,98 @@ class AnalysisService:
             Perspective.HISTORICAL,
         )
 
-        hybrid_results = self._perspective_retriever.search(
-            query=query,
-            perspectives=requested_perspectives,
-            top_k=retrieval_top_k,
-        )
+        # OPTIMIZED: Parallelize retrieval + ACLED
+        retrieval_started = time.perf_counter()
 
-        retrieval_elapsed = time.perf_counter() - started
+        with ThreadPoolExecutor(
+            max_workers=3,
+            thread_name_prefix="mil-evid-retrieval",
+        ) as executor:
+            # Perspective retrieval
+            hybrid_future = executor.submit(
+                self._perspective_retriever.search,
+                query=query,
+                perspectives=requested_perspectives,
+                top_k=retrieval_top_k,
+            )
+
+            # ACLED retrieval (parallel)
+            acled_documents = []
+            acled_future = None
+            if self._acled_retriever is not None and acled_country:
+                acled_future = executor.submit(
+                    self._acled_retriever.retrieve,
+                    country=acled_country,
+                    start_date=acled_start_date,
+                    end_date=acled_end_date,
+                    updated_since=acled_updated_since,
+                    limit=retrieval_top_k,
+                )
+
+            # Get perspective results
+            hybrid_results = hybrid_future.result()
+
+            # Get ACLED results if requested
+            if acled_future is not None:
+                acled_documents = acled_future.result()
+
+                logger.info(
+                    "========== ACLED DEBUG =========="
+                )
+                logger.info(
+                    "country=%s start_date=%s end_date=%s updated_since=%s",
+                    acled_country,
+                    acled_start_date,
+                    acled_end_date,
+                    acled_updated_since,
+                )
+                logger.info(
+                    "ACLED retrieved count=%d",
+                    len(acled_documents),
+                )
+
+                for item in acled_documents[:10]:
+                    logger.info(
+                        "ACLED evidence: source=%s perspective=%s "
+                        "id=%s",
+                        item.source,
+                        item.perspective,
+                        item.evidence_id,
+                    )
+
+                logger.info(
+                    "================================"
+                )
+            else:
+                logger.info(
+                    "ACLED SKIPPED: retriever=%s country=%s",
+                    self._acled_retriever is not None,
+                    acled_country,
+                )
+
+        retrieval_elapsed = time.perf_counter() - retrieval_started
+
+        print("\n========== ACLED ROUTE DEBUG ==========")
+        print("ACLED retriever exists:", self._acled_retriever is not None)
+        print("ACLED country:", repr(acled_country))
+        print("ACLED start date:", repr(acled_start_date))
+        print("ACLED end date:", repr(acled_end_date))
+        print("ACLED updated since:", repr(acled_updated_since))
+        print("=======================================\n")
+
+        logger.info(
+            "RAW HYBRID RESULTS: count=%d ids=%s",
+            len(hybrid_results),
+            [result.chunk_id for result in hybrid_results],
+        )
 
         if not hybrid_results:
             return self._context_builder.build(
                 query=query,
                 reranked_results=[],
             )
+
+        selection_started = time.perf_counter()
 
         evidence_by_id = get_chunks_by_id(
             [result.chunk_id for result in hybrid_results],
@@ -93,7 +195,10 @@ class AnalysisService:
             candidates=hybrid_results,
             evidence_by_id=evidence_by_id,
         )
+
         candidate_results = selection.candidates
+
+        selection_elapsed = time.perf_counter() - selection_started
 
         logger.info(
             "Perspective candidates: requested=%s sources=%s",
@@ -122,39 +227,83 @@ class AnalysisService:
 
         rerank_elapsed = time.perf_counter() - rerank_started
 
+        context_started = time.perf_counter()
+
         context = self._context_builder.build(
             query=query,
             reranked_results=reranked_results,
         )
 
+        context_elapsed = time.perf_counter() - context_started
+
+        dynamic_evidence = ()
+        acled_rerank_elapsed = 0.0
+
+        # OPTIMIZED: Rerank ACLED results if retrieved
+        if acled_documents:
+            acled_rerank_started = time.perf_counter()
+
+            acled_reranked = self._reranker.rerank_evidence(
+                query=query,
+                evidence=acled_documents,
+                top_k=rerank_top_k,
+            )
+
+            dynamic_context = self._context_builder.build_dynamic(
+                query=query,
+                reranked_evidence=acled_reranked,
+            )
+
+            dynamic_evidence = dynamic_context.evidence
+
+            acled_rerank_elapsed = time.perf_counter() - acled_rerank_started
+
+            logger.info(
+                "ACLED dynamic retrieval: country=%s updated_since=%s "
+                "retrieved=%d reranked=%d",
+                acled_country,
+                acled_updated_since,
+                len(acled_documents),
+                len(dynamic_evidence),
+            )
+
         selected_evidence = self._post_rerank_perspective_selector.select(
             query=query,
-            evidence=context.evidence,
+            evidence=context.evidence + dynamic_evidence,
             max_evidence=rerank_top_k,
         )
 
-        guarded_direct: list = []
-        guarded_contextual: list = []
+        guarded_direct = []
+        guarded_contextual = []
 
         for perspective in (
             Perspective.MILITARY,
             Perspective.LEGAL,
             Perspective.HISTORICAL,
         ):
-            perspective_evidence = tuple(
-                evidence
-                for evidence in selected_evidence
-                if (
-                    (
-                        evidence.source in {"UCDP GED", "UCDP Dyadic"}
-                        and perspective == Perspective.MILITARY
-                    )
-                    or (
-                        evidence.source not in {"UCDP GED", "UCDP Dyadic"}
-                        and evidence.perspective == perspective
-                    )
+            if perspective == Perspective.MILITARY:
+                # UCDP/ACLED are military evidence regardless of
+                # their stored perspective metadata.
+                perspective_evidence = tuple(
+                    e
+                    for e in selected_evidence
+                    if e.source in {
+                        "UCDP GED",
+                        "UCDP Dyadic",
+                        "ACLED",
+                    }
                 )
-            )
+            else:
+                perspective_evidence = tuple(
+                    e
+                    for e in selected_evidence
+                    if e.source not in {
+                        "UCDP GED",
+                        "UCDP Dyadic",
+                        "ACLED",
+                    }
+                    and e.perspective == perspective
+                )
 
             if not perspective_evidence:
                 continue
@@ -168,54 +317,65 @@ class AnalysisService:
             guarded_direct.extend(guard_result.direct_evidence)
             guarded_contextual.extend(guard_result.contextual_evidence)
 
-        # filtered_evidence = tuple(
-        #     guarded_direct + guarded_contextual
-        # )
         filtered_evidence = tuple(guarded_direct)
 
-        direct_evidence = tuple(guarded_direct)
-        contextual_evidence = tuple(guarded_contextual)
-
         logger.info(
-            "Pipeline retrieval=%.3fs rerank=%.3fs hybrid=%d "
-            "candidates=%d reranked=%d selected=%d direct=%d contextual=%d",
+            "Pipeline timing: retrieval=%.3fs selection=%.3fs "
+            "rerank=%.3fs context=%.3fs acled_rerank=%.3fs "
+            "hybrid=%d candidates=%d reranked=%d selected=%d "
+            "direct=%d contextual=%d",
             retrieval_elapsed,
+            selection_elapsed,
             rerank_elapsed,
+            context_elapsed,
+            acled_rerank_elapsed,
             len(hybrid_results),
             len(candidate_results),
             len(reranked_results),
             len(filtered_evidence),
-            len(direct_evidence),
-            len(contextual_evidence),
+            # len(direct_evidence),
+            # len(contextual_evidence),
         )
-
         return EvidenceContext(
             query=context.query,
             evidence=filtered_evidence,
             direct_evidence_ids=tuple(
-                evidence.evidence_id
-                for evidence in direct_evidence
+                e.evidence_id
+                for e in guarded_direct
             ),
             contextual_evidence_ids=tuple(
-                evidence.evidence_id
-                for evidence in contextual_evidence
+                e.evidence_id
+                for e in guarded_contextual
             ),
         )
+
 
     def analyze(
         self,
         *,
+        user_id: UUID,
         query: str,
-        retrieval_top_k: int = 15,
-        rerank_top_k: int = 4,
+        analysis_repository: AnalysisRepository,
+        retrieval_top_k: int = 50,  # OPTIMIZED: Reduced from 100
+        rerank_top_k: int = 8,
+        acled_country: str | None = None,
+        acled_start_date: str | None = None,
+        acled_end_date: str | None = None,
+        acled_updated_since: str | None = None,
     ) -> FinalAnalysisResponse:
         """Run the complete optimized pipeline."""
+
         total_started = time.perf_counter()
+        started_at = datetime.now(timezone.utc)
 
         context = self.build_context(
             query=query,
             retrieval_top_k=retrieval_top_k,
             rerank_top_k=rerank_top_k,
+            acled_country=acled_country,
+            acled_updated_since=acled_updated_since,
+            acled_start_date=acled_start_date,
+            acled_end_date=acled_end_date,
         )
 
         analysis_started = time.perf_counter()
@@ -230,22 +390,48 @@ class AnalysisService:
             military.claims + legal.claims + historical.claims
         )
 
-        verification_started = time.perf_counter()
+        # OPTIMIZED: Conditionally skip claim verification
+        if self._skip_claim_verification:
+            # Claim verification is intentionally skipped for performance.
+            # FinalAnalysisResponse expects a tuple, not None.
+            claim_verification = ()
+            verification_elapsed = 0.0
 
-        claim_verification = self._claim_verifier.verify(
-            claims=claims,
-            evidence=context.evidence,
-        )
+            # Run only contradiction detection
+            contradiction_started = time.perf_counter()
 
-        verification_elapsed = time.perf_counter() - verification_started
+            contradictions = self._contradiction_detector.detect(
+                evidence=context.evidence,
+            )
 
-        contradiction_started = time.perf_counter()
+            contradiction_elapsed = (
+                time.perf_counter() - contradiction_started
+            )
 
-        contradictions = self._contradiction_detector.detect(
-            evidence=context.evidence,
-        )
+        else:
+            # Run both verification and contradiction in parallel
+            verification_started = time.perf_counter()
 
-        contradiction_elapsed = time.perf_counter() - contradiction_started
+            with ThreadPoolExecutor(
+                max_workers=3,
+                thread_name_prefix="mil-evid-post-analysis",
+            ) as executor:
+                verification_future = executor.submit(
+                    self._claim_verifier.verify,
+                    claims=claims,
+                    evidence=context.evidence,
+                )
+
+                contradiction_future = executor.submit(
+                    self._contradiction_detector.detect,
+                    evidence=context.evidence,
+                )
+
+                claim_verification = verification_future.result()
+                contradictions = contradiction_future.result()
+
+            verification_elapsed = time.perf_counter() - verification_started
+            contradiction_elapsed = verification_elapsed  # Both ran in parallel
 
         confidence = self._confidence_scorer.score(
             evidence=context.evidence,
@@ -264,30 +450,56 @@ class AnalysisService:
             historical=historical,
         )
 
+        total_elapsed = time.perf_counter() - total_started
+
         logger.info(
-            "Pipeline timing: analysis=%.3fs verification=%.3fs "
-            "contradiction=%.3fs total=%.3fs",
+            "OPTIMIZED PIPELINE TIMING: analysis=%.3fs "
+            "verification=%.3fs contradiction=%.3fs total=%.3fs "
+            "skip_verification=%s",
             analysis_elapsed,
             verification_elapsed,
             contradiction_elapsed,
-            time.perf_counter() - total_started,
+            total_elapsed,
+            self._skip_claim_verification,
         )
 
-        return FinalAnalysisResponse(
+        result = FinalAnalysisResponse(
             query=query_classification,
             military_analysis=military,
             legal_analysis=legal,
             historical_analysis=historical,
+            evidence=context.evidence,
             contradictions=contradictions,
             claim_verification=claim_verification,
             confidence=confidence,
             citations=citations,
         )
 
+        completed_at = datetime.now(timezone.utc)
+
+        try:
+            analysis_repository.create_analysis(
+                user_id=user_id,
+                query_text=query,
+                result=result,
+                evidence=context.evidence,
+                started_at=started_at,
+                completed_at=completed_at,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to persist analysis result for user=%s",
+                user_id,
+            )
+            raise
+
+        return result
+
     @staticmethod
     def _deduplicate_claims(
         claims: tuple[str, ...],
     ) -> tuple[str, ...]:
+        """Remove duplicate claims (normalized)."""
         seen: set[str] = set()
         unique_claims: list[str] = []
 
@@ -311,6 +523,7 @@ class AnalysisService:
         legal,
         historical,
     ) -> tuple[Citation, ...]:
+        """Collect unique citations from all perspectives."""
         citations: list[Citation] = []
         seen: set[str] = set()
 
@@ -328,6 +541,7 @@ class AnalysisService:
         self,
         results,
     ) -> dict[str, str]:
+        """Resolve chunk IDs to their full text."""
         chunks = get_chunks_by_id(
             [result.chunk_id for result in results],
             chunk_store_dir=self._context_builder.chunk_store_dir,
@@ -344,6 +558,7 @@ class AnalysisService:
         evidence,
         perspective: Perspective,
     ) -> bool:
+        """Check if evidence is relevant to a perspective."""
         if evidence.source in {"UCDP GED", "UCDP Dyadic"}:
             return perspective == Perspective.MILITARY
 

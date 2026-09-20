@@ -25,11 +25,6 @@ class PerspectiveRetrievalResult:
 class PerspectiveAwareRetriever:
     """Retrieve evidence separately for each requested perspective."""
 
-    _MILITARY_AUXILIARY_QUERY = (
-        "Russia Ukraine arms transfers weapons military equipment "
-        "suppliers recipients deliveries imports exports"
-    )
-
     def __init__(
         self,
         *,
@@ -74,32 +69,24 @@ class PerspectiveAwareRetriever:
         seen_ids: set[str] = set()
 
         for perspective in perspectives:
-            results = self._retriever.search(
-                focused_queries[perspective],
-                top_k=retrieval_k,
+            perspective_query = focused_queries[perspective]
+
+            queries: tuple[str, ...] = (
+                perspective_query
+                if isinstance(perspective_query, tuple)
+                else (perspective_query,)
             )
 
-            self._append_unique(
-                merged=merged,
-                seen_ids=seen_ids,
-                results=results,
-            )
-
-            # Military gets a second retrieval path specifically for
-            # arms-transfer evidence such as SIPRI.
-            if perspective == Perspective.MILITARY:
-                military_results = self._retriever.search(
-                    (
-                        f"{query} "
-                        f"{self._MILITARY_AUXILIARY_QUERY}"
-                    ),
+            for focused_query in queries:
+                results = self._retriever.search(
+                    focused_query,
                     top_k=retrieval_k,
                 )
 
                 self._append_unique(
                     merged=merged,
                     seen_ids=seen_ids,
-                    results=military_results,
+                    results=results,
                 )
 
         return merged

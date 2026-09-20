@@ -149,7 +149,6 @@ class ConfidenceResult(BaseModel):
 
 class FinalAnalysisResponse(BaseModel):
     """The complete, structured output of the MIL-EVID pipeline."""
-
     model_config = ConfigDict(frozen=True)
 
     query: QueryClassification
@@ -157,6 +156,11 @@ class FinalAnalysisResponse(BaseModel):
     military_analysis: PerspectiveAnalysisResult
     legal_analysis: PerspectiveAnalysisResult
     historical_analysis: PerspectiveAnalysisResult
+
+    # Final evidence used by the analysis pipeline
+    evidence: tuple[AnalysisEvidence, ...] = Field(
+        default_factory=tuple
+    )
 
     contradictions: tuple[ContradictionResult, ...] = Field(
         default_factory=tuple
