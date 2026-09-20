@@ -13,6 +13,7 @@ import EvidenceDetail from "./pages/EvidenceDetail";
 import SystemStatus from "./pages/SystemStatus";
 import NotFound from "./pages/NotFound";
 import Protected from "./components/Protected";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -30,7 +31,7 @@ function App() {
           <Route path="/evidence" element={<Protected><EvidenceExplorer /></Protected>} />
           <Route path="/evidence/:id" element={<Protected><EvidenceDetail /></Protected>} />
           <Route path="/system" element={<Protected><SystemStatus /></Protected>} />
-
+          <Route path="/profile" element={<Protected><Profile /></Protected>}/>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

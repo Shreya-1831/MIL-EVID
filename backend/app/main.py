@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from app.database.session import init_db
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.analysis import router as analysis_router
@@ -188,15 +189,21 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    """Create the MIL-EVID FastAPI application."""
-
     app = FastAPI(
         title="MIL-EVID",
-        description=(
-            "Evidence-grounded multi-perspective military analysis API"
-        ),
+        description="Evidence-grounded multi-perspective military analysis API",
         version="0.1.0",
         lifespan=lifespan,
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.exception_handler(MilEvidError)

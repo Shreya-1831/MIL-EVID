@@ -169,10 +169,7 @@ class Query(Base):
         server_default=func.now(),
     )
 
-
 class Analysis(Base):
-    """Persisted result of one MIL-EVID analysis run."""
-
     __tablename__ = "analyses"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -181,7 +178,10 @@ class Analysis(Base):
     )
 
     query_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("queries.id", ondelete="CASCADE"),
+        ForeignKey(
+            "queries.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
@@ -212,7 +212,6 @@ class Analysis(Base):
         DateTime,
         nullable=True,
     )
-
 
 class AnalysisPerspective(Base):
     """Perspective-specific analysis output."""

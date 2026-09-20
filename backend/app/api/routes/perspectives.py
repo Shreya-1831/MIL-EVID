@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
-from app.api.schemas.analysis import PerspectiveAnalysisResponse
 from app.domain.enums import Perspective
 
 
@@ -17,7 +16,6 @@ router = APIRouter(
 @router.get("")
 def list_perspectives() -> list[dict[str, str]]:
     """Return the analytical perspectives supported by MIL-EVID."""
-
     return [
         {
             "value": perspective.value,
@@ -27,14 +25,11 @@ def list_perspectives() -> list[dict[str, str]]:
     ]
 
 
-@router.get(
-    "/{perspective}",
-    response_model=PerspectiveAnalysisResponse,
-)
+@router.get("/{perspective}")
 def get_perspective(
     perspective: Perspective,
     request: Request,
-) -> PerspectiveAnalysisResponse:
+) -> dict:
     """Return perspective-specific analysis configuration."""
 
     retriever = getattr(
@@ -49,12 +44,10 @@ def get_perspective(
             detail="Perspective retrieval service is not initialized.",
         )
 
-    return PerspectiveAnalysisResponse(
-        perspective={
-            "perspective": perspective,
-            "analysis_text": "",
-            "claims": (),
-            "evidence_ids": (),
-            "citations": (),
-        }
-    )
+    return {
+        "perspective": perspective.value,
+        "analysis_text": "",
+        "claims": [],
+        "evidence_ids": [],
+        "citations": [],
+    }

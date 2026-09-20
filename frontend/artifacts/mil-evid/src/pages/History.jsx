@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Filter, Plus, Search } from "lucide-react";
 import { Link } from "react-router-dom";
-import { analyses as initialAnalyses } from "../services/mockData";
+
+import { apiClient } from "../services/apiClient";
 import PageHeader from "../components/PageHeader";
 import Panel from "../components/Panel";
 import AnalysisRow from "../components/AnalysisRow";
@@ -9,119 +10,239 @@ import EmptyState from "../components/EmptyState";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function History() {
-  const [items, setItems] = useState(initialAnalyses);
+  const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [sort, setSort] = useState("Newest");
+
   const [deleteId, setDeleteId] = useState(null);
 
-  const filtered = items
-    .filter(
-      (item) =>
-        `${item.query} ${item.region} ${item.id}`
-          .toLowerCase()
-          .includes(search.toLowerCase()) &&
-        (filter === "All" || item.status === filter)
-    )
-    .sort((a, b) =>
-      sort === "Newest"
-        ? new Date(b.timestamp) - new Date(a.timestamp)
-        : sort === "Confidence"
-          ? b.confidence - a.confidence
-          : a.query.localeCompare(b.query)
-    );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadHistory() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const analyses = await apiClient.listAnalyses();
+
+        if (mounted) {
+          setItems(analyses);
+        }
+      } catch (err) {
+        console.error("Failed to load analysis history:", err);
+
+        if (mounted) {
+          setError(
+            err.message ||
+              "Failed to load analysis history."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadHistory();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    return [...items]
+      .filter((item) => {
+        const text =
+          `${item.query_text} ${item.analysis_id}`
+            .toLowerCase();
+
+        const matchesSearch =
+          text.includes(search.toLowerCase());
+
+        const matchesFilter =
+          filter === "All" ||
+          item.status === filter;
+
+        return (
+          matchesSearch &&
+          matchesFilter
+        );
+      })
+      .sort((a, b) => {
+        if (sort === "Newest") {
+          return (
+            new Date(
+              b.completed_at || b.started_at
+            ) -
+            new Date(
+              a.completed_at || a.started_at
+            )
+          );
+        }
+
+        if (sort === "Confidence") {
+          return (
+            b.overall_confidence -
+            a.overall_confidence
+          );
+        }
+
+        return a.query_text.localeCompare(
+          b.query_text
+        );
+      });
+  }, [items, search, filter, sort]);
+
+  async function handleDelete() {
+    if (!deleteId) return;
+
+    try {
+      await apiClient.deleteAnalysis(deleteId);
+
+      setItems((current) =>
+        current.filter(
+          (item) =>
+            item.analysis_id !== deleteId
+        )
+      );
+    } catch (err) {
+      console.error(
+        "Failed to delete analysis:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Failed to delete analysis."
+      );
+    } finally {
+      setDeleteId(null);
+    }
+  }
 
   return (
     <>
       <PageHeader
-        eyebrow="Research archive"
-        title="Analysis history."
-        description="Every question, scope, and outcome in one searchable register."
-        action={
-          <Link
-            to="/analysis/new"
-            className="inline-flex h-10 items-center gap-2 bg-accent px-4 text-sm text-accent-foreground"
-            data-testid="link-history-new"
-          >
-            <Plus size={16} /> New analysis
-          </Link>
-        }
+        title="Analysis History"
+        description="Review previously completed MIL-EVID analyses."
       />
 
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
-        <label className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-10 w-full border border-input bg-card pl-9 pr-3 text-sm"
-            placeholder="Search questions, regions, record IDs…"
-            data-testid="input-history-search"
-          />
-        </label>
+      <Panel>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Filter size={15} className="text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+                placeholder="Search analyses..."
+                className="w-full rounded border bg-background py-2 pl-9 pr-3 text-sm md:w-80"
+              />
+            </div>
 
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="h-10 border border-input bg-card px-3 text-sm"
-            data-testid="select-history-status"
-          >
-            <option>All</option>
-            <option>Complete</option>
-            <option>Review</option>
-          </select>
+            <div className="flex gap-2">
+              <select
+                value={filter}
+                onChange={(e) =>
+                  setFilter(e.target.value)
+                }
+                className="rounded border bg-background px-3 py-2 text-sm"
+              >
+                <option value="All">All</option>
+                <option value="completed">
+                  Completed
+                </option>
+              </select>
 
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="h-10 border border-input bg-card px-3 text-sm"
-            aria-label="Sort analysis history"
-            data-testid="select-history-sort"
-          >
-            <option>Newest</option>
-            <option>Confidence</option>
-            <option>Question</option>
-          </select>
-        </div>
-      </div>
+              <select
+                value={sort}
+                onChange={(e) =>
+                  setSort(e.target.value)
+                }
+                className="rounded border bg-background px-3 py-2 text-sm"
+              >
+                <option value="Newest">
+                  Newest
+                </option>
+                <option value="Confidence">
+                  Confidence
+                </option>
+                <option value="Query">
+                  Query
+                </option>
+              </select>
 
-      <Panel title={`${filtered.length} analysis records`} meta="Local archive">
-        <div className="divide-y divide-border">
-          {filtered.map((item) => (
-            <AnalysisRow
-              item={item}
-              onDelete={setDeleteId}
-              key={item.id}
-            />
-          ))}
+              <Link
+                to="/analysis/new"
+                className="inline-flex items-center gap-2 rounded bg-accent px-4 py-2 text-sm font-medium text-white"
+              >
+                <Plus size={15} />
+                New Analysis
+              </Link>
+            </div>
+          </div>
 
-          {filtered.length === 0 && (
-            <EmptyState
-              title="No records match this search."
-              text="Try another phrase or clear the status filter."
-              onReset={() => {
-                setSearch("");
-                setFilter("All");
-              }}
-            />
+          {loading && (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              Loading analysis history...
+            </div>
           )}
+
+          {!loading && error && (
+            <div className="rounded border border-destructive/30 p-4 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          {!loading &&
+            !error &&
+            filtered.length === 0 && (
+              <EmptyState
+                title="No analyses found"
+                description={
+                  items.length === 0
+                    ? "Run your first MIL-EVID analysis to see it here."
+                    : "Try changing your search or filters."
+                }
+              />
+            )}
+
+          {!loading &&
+            !error &&
+            filtered.length > 0 && (
+              <div className="divide-y">
+                {filtered.map((item) => (
+                  <AnalysisRow
+                    key={item.analysis_id}
+                    item={item}
+                    onDelete={setDeleteId}
+                  />
+                ))}
+              </div>
+            )}
         </div>
       </Panel>
 
-      {deleteId && (
-        <ConfirmDialog
-          title="Delete this analysis?"
-          text="The local record will be removed from this archive. This cannot be undone."
-          onCancel={() => setDeleteId(null)}
-          onConfirm={() => {
-            setItems(items.filter((item) => item.id !== deleteId));
-            setDeleteId(null);
-          }}
-        />
-      )}
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        title="Delete analysis?"
+        description="This will permanently remove the analysis and its stored evidence, claims, perspectives, and contradictions."
+        onCancel={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+      />
     </>
   );
 }

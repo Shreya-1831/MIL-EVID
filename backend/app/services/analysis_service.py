@@ -1,4 +1,4 @@
-"""Fast orchestration service for evidence-grounded analysis (OPTIMIZED)."""
+"""Fast orchestration service for evidence-grounded analysis."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from uuid import UUID
 
+from app.database.models import Analysis
 from app.domain.enums import Perspective
 from app.domain.models.analysis import (
     Citation,
@@ -19,25 +20,61 @@ from app.modules.analysis.analyzer import EvidenceAnalyzer
 from app.modules.analysis.claim_verifier import ClaimVerifier
 from app.modules.analysis.confidence_scorer import ConfidenceScorer
 from app.modules.analysis.context_builder import EvidenceContextBuilder
-from app.modules.analysis.contradiction_detector import ContradictionDetector
-from app.modules.analysis.evidence_guard import EvidenceConsistencyGuard
+from app.modules.analysis.contradiction_detector import (
+    ContradictionDetector,
+)
+from app.modules.analysis.evidence_guard import (
+    EvidenceConsistencyGuard,
+)
 from app.modules.analysis.perspective_selector import (
     PerspectiveAwareCandidateSelector,
 )
 from app.modules.analysis.post_rerank_perspective_selector import (
     PostRerankPerspectiveSelector,
 )
-from app.modules.retrieval.acled_retriever import ACLEDDynamicRetriever
-from app.modules.retrieval.perspective_retriever import PerspectiveAwareRetriever
-from app.modules.retrieval.reranker import CrossEncoderReranker
-from app.repositories.analysis_repository import AnalysisRepository
+from app.modules.retrieval.acled_retriever import (
+    ACLEDDynamicRetriever,
+)
+from app.modules.retrieval.perspective_retriever import (
+    PerspectiveAwareRetriever,
+)
+from app.modules.retrieval.reranker import (
+    CrossEncoderReranker,
+)
+from app.repositories.analysis_repository import (
+    AnalysisRepository,
+)
 from app.repositories.chunk_file_store import get_chunks_by_id
+
 
 logger = logging.getLogger("mil_evid")
 
 
 class AnalysisService:
     """Run retrieval, reranking, evidence filtering, and analysis."""
+
+    # =========================================================
+    # STATUS VALUES
+    # =========================================================
+    #
+    # These values fit the existing Analysis.status String(20)
+    # column. No migration is required.
+    #
+    # The frontend can translate these codes into human-readable
+    # pipeline stages.
+    #
+
+    STATUS_QUERY = "q"
+    STATUS_RETRIEVAL = "r"
+    STATUS_EVIDENCE = "e"
+    STATUS_RERANK = "rr"
+    STATUS_MULTI_PERSPECTIVE = "mp"
+    STATUS_CLAIM_VERIFICATION = "cv"
+    STATUS_CONTRADICTION = "cd"
+    STATUS_CONFIDENCE = "cs"
+    STATUS_RESPONSE = "rg"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED = "failed"
 
     def __init__(
         self,
@@ -69,21 +106,68 @@ class AnalysisService:
         self._contradiction_detector = contradiction_detector
         self._confidence_scorer = confidence_scorer
         self._claim_verifier = claim_verifier
-        self._rerank_candidate_k = max(1, rerank_candidate_k)
-        self._skip_claim_verification = skip_claim_verification
+        self._rerank_candidate_k = max(
+            1,
+            rerank_candidate_k,
+        )
+        self._skip_claim_verification = (
+            skip_claim_verification
+        )
+
+    # =========================================================
+    # STATUS HELPER
+    # =========================================================
+
+    @staticmethod
+    def _update_status(
+        *,
+        analysis_repository: AnalysisRepository,
+        analysis_id: UUID,
+        status: str,
+    ) -> None:
+        """Update the persisted pipeline status."""
+
+        try:
+            analysis_repository.update_analysis_status(
+                analysis_id=analysis_id,
+                status=status,
+            )
+
+            logger.info(
+                "Analysis %s status -> %s",
+                analysis_id,
+                status,
+            )
+
+        except Exception:
+            # Status updates should never silently break the
+            # actual analysis pipeline.
+            logger.exception(
+                "Failed to update analysis status: "
+                "analysis_id=%s status=%s",
+                analysis_id,
+                status,
+            )
+
+    # =========================================================
+    # BUILD CONTEXT
+    # =========================================================
 
     def build_context(
         self,
         *,
         query: str,
-        retrieval_top_k: int = 50,  # OPTIMIZED: Reduced from 100
+        retrieval_top_k: int = 50,
         rerank_top_k: int = 8,
         acled_country: str | None = None,
         acled_start_date: str | None = None,
         acled_end_date: str | None = None,
         acled_updated_since: str | None = None,
+        analysis_repository: AnalysisRepository | None = None,
+        analysis_id: UUID | None = None,
     ) -> EvidenceContext:
-        """Retrieve, rerank, select, and consistency-check compact evidence."""
+        """Retrieve, rerank, select, and consistency-check evidence."""
+
         started = time.perf_counter()
 
         requested_perspectives = (
@@ -92,14 +176,27 @@ class AnalysisService:
             Perspective.HISTORICAL,
         )
 
-        # OPTIMIZED: Parallelize retrieval + ACLED
+        # =====================================================
+        # RETRIEVAL
+        # =====================================================
+
+        if (
+            analysis_repository is not None
+            and analysis_id is not None
+        ):
+            self._update_status(
+                analysis_repository=analysis_repository,
+                analysis_id=analysis_id,
+                status=self.STATUS_RETRIEVAL,
+            )
+
         retrieval_started = time.perf_counter()
 
         with ThreadPoolExecutor(
             max_workers=3,
             thread_name_prefix="mil-evid-retrieval",
         ) as executor:
-            # Perspective retrieval
+
             hybrid_future = executor.submit(
                 self._perspective_retriever.search,
                 query=query,
@@ -107,10 +204,13 @@ class AnalysisService:
                 top_k=retrieval_top_k,
             )
 
-            # ACLED retrieval (parallel)
             acled_documents = []
             acled_future = None
-            if self._acled_retriever is not None and acled_country:
+
+            if (
+                self._acled_retriever is not None
+                and acled_country
+            ):
                 acled_future = executor.submit(
                     self._acled_retriever.retrieve,
                     country=acled_country,
@@ -120,23 +220,24 @@ class AnalysisService:
                     limit=retrieval_top_k,
                 )
 
-            # Get perspective results
             hybrid_results = hybrid_future.result()
 
-            # Get ACLED results if requested
             if acled_future is not None:
                 acled_documents = acled_future.result()
 
                 logger.info(
                     "========== ACLED DEBUG =========="
                 )
+
                 logger.info(
-                    "country=%s start_date=%s end_date=%s updated_since=%s",
+                    "country=%s start_date=%s "
+                    "end_date=%s updated_since=%s",
                     acled_country,
                     acled_start_date,
                     acled_end_date,
                     acled_updated_since,
                 )
+
                 logger.info(
                     "ACLED retrieved count=%d",
                     len(acled_documents),
@@ -144,8 +245,8 @@ class AnalysisService:
 
                 for item in acled_documents[:10]:
                     logger.info(
-                        "ACLED evidence: source=%s perspective=%s "
-                        "id=%s",
+                        "ACLED evidence: source=%s "
+                        "perspective=%s id=%s",
                         item.source,
                         item.perspective,
                         item.evidence_id,
@@ -154,6 +255,7 @@ class AnalysisService:
                 logger.info(
                     "================================"
                 )
+
             else:
                 logger.info(
                     "ACLED SKIPPED: retriever=%s country=%s",
@@ -161,20 +263,18 @@ class AnalysisService:
                     acled_country,
                 )
 
-        retrieval_elapsed = time.perf_counter() - retrieval_started
-
-        print("\n========== ACLED ROUTE DEBUG ==========")
-        print("ACLED retriever exists:", self._acled_retriever is not None)
-        print("ACLED country:", repr(acled_country))
-        print("ACLED start date:", repr(acled_start_date))
-        print("ACLED end date:", repr(acled_end_date))
-        print("ACLED updated since:", repr(acled_updated_since))
-        print("=======================================\n")
+        retrieval_elapsed = (
+            time.perf_counter()
+            - retrieval_started
+        )
 
         logger.info(
             "RAW HYBRID RESULTS: count=%d ids=%s",
             len(hybrid_results),
-            [result.chunk_id for result in hybrid_results],
+            [
+                result.chunk_id
+                for result in hybrid_results
+            ],
         )
 
         if not hybrid_results:
@@ -183,11 +283,30 @@ class AnalysisService:
                 reranked_results=[],
             )
 
+        # =====================================================
+        # EVIDENCE SELECTION
+        # =====================================================
+
+        if (
+            analysis_repository is not None
+            and analysis_id is not None
+        ):
+            self._update_status(
+                analysis_repository=analysis_repository,
+                analysis_id=analysis_id,
+                status=self.STATUS_EVIDENCE,
+            )
+
         selection_started = time.perf_counter()
 
         evidence_by_id = get_chunks_by_id(
-            [result.chunk_id for result in hybrid_results],
-            chunk_store_dir=self._context_builder.chunk_store_dir,
+            [
+                result.chunk_id
+                for result in hybrid_results
+            ],
+            chunk_store_dir=(
+                self._context_builder.chunk_store_dir
+            ),
         )
 
         selection = self._perspective_selector.select(
@@ -198,34 +317,67 @@ class AnalysisService:
 
         candidate_results = selection.candidates
 
-        selection_elapsed = time.perf_counter() - selection_started
+        selection_elapsed = (
+            time.perf_counter()
+            - selection_started
+        )
 
         logger.info(
             "Perspective candidates: requested=%s sources=%s",
             selection.requested_perspectives,
             [
                 (
-                    evidence_by_id[candidate.chunk_id].source,
-                    evidence_by_id[candidate.chunk_id].perspective,
+                    evidence_by_id[
+                        candidate.chunk_id
+                    ].source,
+                    evidence_by_id[
+                        candidate.chunk_id
+                    ].perspective,
                     candidate.chunk_id,
                 )
                 for candidate in candidate_results
-                if candidate.chunk_id in evidence_by_id
+                if candidate.chunk_id
+                in evidence_by_id
             ],
         )
 
-        rerank_candidates = candidate_results[: self._rerank_candidate_k]
+        # =====================================================
+        # RERANKING
+        # =====================================================
+
+        if (
+            analysis_repository is not None
+            and analysis_id is not None
+        ):
+            self._update_status(
+                analysis_repository=analysis_repository,
+                analysis_id=analysis_id,
+                status=self.STATUS_RERANK,
+            )
+
+        rerank_candidates = candidate_results[
+            : self._rerank_candidate_k
+        ]
 
         rerank_started = time.perf_counter()
 
         reranked_results = self._reranker.rerank(
             query=query,
             candidates=rerank_candidates,
-            chunk_texts=self._resolve_chunk_texts(rerank_candidates),
+            chunk_texts=self._resolve_chunk_texts(
+                rerank_candidates
+            ),
             top_k=len(rerank_candidates),
         )
 
-        rerank_elapsed = time.perf_counter() - rerank_started
+        rerank_elapsed = (
+            time.perf_counter()
+            - rerank_started
+        )
+
+        # =====================================================
+        # CONTEXT BUILDING
+        # =====================================================
 
         context_started = time.perf_counter()
 
@@ -234,32 +386,50 @@ class AnalysisService:
             reranked_results=reranked_results,
         )
 
-        context_elapsed = time.perf_counter() - context_started
+        context_elapsed = (
+            time.perf_counter()
+            - context_started
+        )
 
         dynamic_evidence = ()
         acled_rerank_elapsed = 0.0
 
-        # OPTIMIZED: Rerank ACLED results if retrieved
+        # =====================================================
+        # ACLED RERANKING
+        # =====================================================
+
         if acled_documents:
-            acled_rerank_started = time.perf_counter()
-
-            acled_reranked = self._reranker.rerank_evidence(
-                query=query,
-                evidence=acled_documents,
-                top_k=rerank_top_k,
+            acled_rerank_started = (
+                time.perf_counter()
             )
 
-            dynamic_context = self._context_builder.build_dynamic(
-                query=query,
-                reranked_evidence=acled_reranked,
+            acled_reranked = (
+                self._reranker.rerank_evidence(
+                    query=query,
+                    evidence=acled_documents,
+                    top_k=rerank_top_k,
+                )
             )
 
-            dynamic_evidence = dynamic_context.evidence
+            dynamic_context = (
+                self._context_builder.build_dynamic(
+                    query=query,
+                    reranked_evidence=acled_reranked,
+                )
+            )
 
-            acled_rerank_elapsed = time.perf_counter() - acled_rerank_started
+            dynamic_evidence = (
+                dynamic_context.evidence
+            )
+
+            acled_rerank_elapsed = (
+                time.perf_counter()
+                - acled_rerank_started
+            )
 
             logger.info(
-                "ACLED dynamic retrieval: country=%s updated_since=%s "
+                "ACLED dynamic retrieval: "
+                "country=%s updated_since=%s "
                 "retrieved=%d reranked=%d",
                 acled_country,
                 acled_updated_since,
@@ -267,11 +437,24 @@ class AnalysisService:
                 len(dynamic_evidence),
             )
 
-        selected_evidence = self._post_rerank_perspective_selector.select(
-            query=query,
-            evidence=context.evidence + dynamic_evidence,
-            max_evidence=rerank_top_k,
+        # =====================================================
+        # POST-RERANK PERSPECTIVE SELECTION
+        # =====================================================
+
+        selected_evidence = (
+            self._post_rerank_perspective_selector.select(
+                query=query,
+                evidence=(
+                    context.evidence
+                    + dynamic_evidence
+                ),
+                max_evidence=rerank_top_k,
+            )
         )
+
+        # =====================================================
+        # EVIDENCE GUARD
+        # =====================================================
 
         guarded_direct = []
         guarded_contextual = []
@@ -282,47 +465,62 @@ class AnalysisService:
             Perspective.HISTORICAL,
         ):
             if perspective == Perspective.MILITARY:
-                # UCDP/ACLED are military evidence regardless of
-                # their stored perspective metadata.
+
                 perspective_evidence = tuple(
                     e
                     for e in selected_evidence
-                    if e.source in {
+                    if e.source
+                    in {
                         "UCDP GED",
                         "UCDP Dyadic",
                         "ACLED",
                     }
                 )
+
             else:
+
                 perspective_evidence = tuple(
                     e
                     for e in selected_evidence
-                    if e.source not in {
+                    if e.source
+                    not in {
                         "UCDP GED",
                         "UCDP Dyadic",
                         "ACLED",
                     }
-                    and e.perspective == perspective
+                    and e.perspective
+                    == perspective
                 )
 
             if not perspective_evidence:
                 continue
 
-            guard_result = self._evidence_guard.filter(
-                query=query,
-                evidence=perspective_evidence,
-                perspective=perspective.value,
+            guard_result = (
+                self._evidence_guard.filter(
+                    query=query,
+                    evidence=perspective_evidence,
+                    perspective=perspective.value,
+                )
             )
 
-            guarded_direct.extend(guard_result.direct_evidence)
-            guarded_contextual.extend(guard_result.contextual_evidence)
+            guarded_direct.extend(
+                guard_result.direct_evidence
+            )
 
-        filtered_evidence = tuple(guarded_direct)
+            guarded_contextual.extend(
+                guard_result.contextual_evidence
+            )
+
+        filtered_evidence = tuple(
+            guarded_direct
+        )
 
         logger.info(
-            "Pipeline timing: retrieval=%.3fs selection=%.3fs "
-            "rerank=%.3fs context=%.3fs acled_rerank=%.3fs "
-            "hybrid=%d candidates=%d reranked=%d selected=%d "
+            "Pipeline timing: retrieval=%.3fs "
+            "selection=%.3fs rerank=%.3fs "
+            "context=%.3fs acled_rerank=%.3fs "
+            "hybrid=%d candidates=%d "
+            "reranked=%d selected=%d "
             "direct=%d contextual=%d",
             retrieval_elapsed,
             selection_elapsed,
@@ -333,9 +531,10 @@ class AnalysisService:
             len(candidate_results),
             len(reranked_results),
             len(filtered_evidence),
-            # len(direct_evidence),
-            # len(contextual_evidence),
+            len(guarded_direct),
+            len(guarded_contextual),
         )
+
         return EvidenceContext(
             query=context.query,
             evidence=filtered_evidence,
@@ -349,6 +548,9 @@ class AnalysisService:
             ),
         )
 
+    # =========================================================
+    # ANALYZE
+    # =========================================================
 
     def analyze(
         self,
@@ -356,165 +558,399 @@ class AnalysisService:
         user_id: UUID,
         query: str,
         analysis_repository: AnalysisRepository,
-        retrieval_top_k: int = 50,  # OPTIMIZED: Reduced from 100
+        analysis_id: UUID | None = None,
+        retrieval_top_k: int = 50,
         rerank_top_k: int = 8,
         acled_country: str | None = None,
         acled_start_date: str | None = None,
         acled_end_date: str | None = None,
         acled_updated_since: str | None = None,
-    ) -> FinalAnalysisResponse:
-        """Run the complete optimized pipeline."""
+    ) -> tuple[FinalAnalysisResponse, Analysis]:
+        """Run the complete analysis pipeline."""
 
         total_started = time.perf_counter()
-        started_at = datetime.now(timezone.utc)
 
-        context = self.build_context(
-            query=query,
-            retrieval_top_k=retrieval_top_k,
-            rerank_top_k=rerank_top_k,
-            acled_country=acled_country,
-            acled_updated_since=acled_updated_since,
-            acled_start_date=acled_start_date,
-            acled_end_date=acled_end_date,
+        started_at = datetime.now(
+            timezone.utc
         )
 
-        analysis_started = time.perf_counter()
+        # =====================================================
+        # CREATE PROCESSING RECORD
+        # =====================================================
 
-        military, legal, historical = self._analyzer.analyze(
-            context=context,
-        )
-
-        analysis_elapsed = time.perf_counter() - analysis_started
-
-        claims = self._deduplicate_claims(
-            military.claims + legal.claims + historical.claims
-        )
-
-        # OPTIMIZED: Conditionally skip claim verification
-        if self._skip_claim_verification:
-            # Claim verification is intentionally skipped for performance.
-            # FinalAnalysisResponse expects a tuple, not None.
-            claim_verification = ()
-            verification_elapsed = 0.0
-
-            # Run only contradiction detection
-            contradiction_started = time.perf_counter()
-
-            contradictions = self._contradiction_detector.detect(
-                evidence=context.evidence,
+        if analysis_id is None:
+            analysis_record = (
+                analysis_repository.create_processing_analysis(
+                    user_id=user_id,
+                    query_text=query,
+                    started_at=started_at,
+                )
             )
-
-            contradiction_elapsed = (
-                time.perf_counter() - contradiction_started
-            )
-
+            analysis_id = analysis_record.id
         else:
-            # Run both verification and contradiction in parallel
-            verification_started = time.perf_counter()
-
-            with ThreadPoolExecutor(
-                max_workers=3,
-                thread_name_prefix="mil-evid-post-analysis",
-            ) as executor:
-                verification_future = executor.submit(
-                    self._claim_verifier.verify,
-                    claims=claims,
-                    evidence=context.evidence,
+            analysis_record = (
+                analysis_repository.get_analysis(
+                    analysis_id=analysis_id,
+                    user_id=user_id,
                 )
+            )
 
-                contradiction_future = executor.submit(
-                    self._contradiction_detector.detect,
-                    evidence=context.evidence,
+            if analysis_record is None:
+                raise ValueError(
+                    f"Analysis {analysis_id} not found."
                 )
-
-                claim_verification = verification_future.result()
-                contradictions = contradiction_future.result()
-
-            verification_elapsed = time.perf_counter() - verification_started
-            contradiction_elapsed = verification_elapsed  # Both ran in parallel
-
-        confidence = self._confidence_scorer.score(
-            evidence=context.evidence,
-            contradictions=contradictions,
-            claim_verification=claim_verification,
-        )
-
-        query_classification = QueryClassification(
-            raw_query=query,
-            normalized_query=query.strip(),
-        )
-
-        citations = self._collect_citations(
-            military=military,
-            legal=legal,
-            historical=historical,
-        )
-
-        total_elapsed = time.perf_counter() - total_started
 
         logger.info(
-            "OPTIMIZED PIPELINE TIMING: analysis=%.3fs "
-            "verification=%.3fs contradiction=%.3fs total=%.3fs "
-            "skip_verification=%s",
-            analysis_elapsed,
-            verification_elapsed,
-            contradiction_elapsed,
-            total_elapsed,
-            self._skip_claim_verification,
+            "Started analysis: id=%s user=%s",
+            analysis_id,
+            user_id,
         )
-
-        result = FinalAnalysisResponse(
-            query=query_classification,
-            military_analysis=military,
-            legal_analysis=legal,
-            historical_analysis=historical,
-            evidence=context.evidence,
-            contradictions=contradictions,
-            claim_verification=claim_verification,
-            confidence=confidence,
-            citations=citations,
-        )
-
-        completed_at = datetime.now(timezone.utc)
 
         try:
-            analysis_repository.create_analysis(
-                user_id=user_id,
-                query_text=query,
-                result=result,
-                evidence=context.evidence,
-                started_at=started_at,
-                completed_at=completed_at,
+
+            # =================================================
+            # QUERY PROCESSING
+            # =================================================
+
+            self._update_status(
+                analysis_repository=analysis_repository,
+                analysis_id=analysis_id,
+                status=self.STATUS_QUERY,
             )
+
+            normalized_query = query.strip()
+
+            # =================================================
+            # RETRIEVAL + EVIDENCE + RERANKING
+            # =================================================
+
+            context = self.build_context(
+                query=normalized_query,
+                retrieval_top_k=retrieval_top_k,
+                rerank_top_k=rerank_top_k,
+                acled_country=acled_country,
+                acled_updated_since=(
+                    acled_updated_since
+                ),
+                acled_start_date=acled_start_date,
+                acled_end_date=acled_end_date,
+                analysis_repository=(
+                    analysis_repository
+                ),
+                analysis_id=analysis_id,
+            )
+
+            # =================================================
+            # MULTI-PERSPECTIVE ANALYSIS
+            # =================================================
+
+            #
+            # IMPORTANT:
+            #
+            # The status remains "rr" while the three perspective
+            # analyses are running.
+            #
+            # Only AFTER military + legal + historical have all
+            # returned successfully do we set "mp".
+            #
+
+            analysis_started = time.perf_counter()
+
+            military, legal, historical = (
+                self._analyzer.analyze(
+                    context=context,
+                )
+            )
+
+            analysis_elapsed = (
+                time.perf_counter()
+                - analysis_started
+            )
+
+            # All three completed.
+            self._update_status(
+                analysis_repository=analysis_repository,
+                analysis_id=analysis_id,
+                status=self.STATUS_MULTI_PERSPECTIVE,
+            )
+
+            logger.info(
+                "Military + Legal + Historical analysis "
+                "completed for analysis=%s",
+                analysis_id,
+            )
+
+            # =================================================
+            # CLAIM DEDUPLICATION
+            # =================================================
+
+            claims = self._deduplicate_claims(
+                military.claims
+                + legal.claims
+                + historical.claims
+            )
+
+            # =================================================
+            # CLAIM VERIFICATION
+            # =================================================
+
+            if self._skip_claim_verification:
+
+                claim_verification = ()
+
+                verification_elapsed = 0.0
+
+                contradiction_started = (
+                    time.perf_counter()
+                )
+
+                self._update_status(
+                    analysis_repository=(
+                        analysis_repository
+                    ),
+                    analysis_id=analysis_id,
+                    status=self.STATUS_CONTRADICTION,
+                )
+
+                contradictions = (
+                    self._contradiction_detector.detect(
+                        evidence=context.evidence,
+                    )
+                )
+
+                contradiction_elapsed = (
+                    time.perf_counter()
+                    - contradiction_started
+                )
+
+            else:
+
+                verification_started = (
+                    time.perf_counter()
+                )
+
+                #
+                # Both verification and contradiction detection
+                # run concurrently.
+                #
+                # Therefore we keep the status as "cv" until
+                # BOTH operations have completed.
+                #
+
+                self._update_status(
+                    analysis_repository=(
+                        analysis_repository
+                    ),
+                    analysis_id=analysis_id,
+                    status=self.STATUS_CLAIM_VERIFICATION,
+                )
+
+                with ThreadPoolExecutor(
+                    max_workers=2,
+                    thread_name_prefix=(
+                        "mil-evid-post-analysis"
+                    ),
+                ) as executor:
+
+                    verification_future = (
+                        executor.submit(
+                            self._claim_verifier.verify,
+                            claims=claims,
+                            evidence=context.evidence,
+                        )
+                    )
+
+                    contradiction_future = (
+                        executor.submit(
+                            self._contradiction_detector.detect,
+                            evidence=context.evidence,
+                        )
+                    )
+
+                    claim_verification = (
+                        verification_future.result()
+                    )
+
+                    contradictions = (
+                        contradiction_future.result()
+                    )
+
+                verification_elapsed = (
+                    time.perf_counter()
+                    - verification_started
+                )
+
+                contradiction_elapsed = (
+                    verification_elapsed
+                )
+
+                # Both post-analysis tasks completed.
+                self._update_status(
+                    analysis_repository=(
+                        analysis_repository
+                    ),
+                    analysis_id=analysis_id,
+                    status=self.STATUS_CONTRADICTION,
+                )
+
+            # =================================================
+            # CONFIDENCE SCORING
+            # =================================================
+
+            self._update_status(
+                analysis_repository=(
+                    analysis_repository
+                ),
+                analysis_id=analysis_id,
+                status=self.STATUS_CONFIDENCE,
+            )
+
+            confidence = (
+                self._confidence_scorer.score(
+                    evidence=context.evidence,
+                    contradictions=contradictions,
+                    claim_verification=(
+                        claim_verification
+                    ),
+                )
+            )
+
+            # =================================================
+            # QUERY CLASSIFICATION
+            # =================================================
+
+            query_classification = (
+                QueryClassification(
+                    raw_query=query,
+                    normalized_query=query.strip(),
+                )
+            )
+
+            # =================================================
+            # RESPONSE GENERATION
+            # =================================================
+
+            self._update_status(
+                analysis_repository=(
+                    analysis_repository
+                ),
+                analysis_id=analysis_id,
+                status=self.STATUS_RESPONSE,
+            )
+
+            citations = self._collect_citations(
+                military=military,
+                legal=legal,
+                historical=historical,
+            )
+
+            result = FinalAnalysisResponse(
+                query=query_classification,
+                military_analysis=military,
+                legal_analysis=legal,
+                historical_analysis=historical,
+                evidence=context.evidence,
+                contradictions=contradictions,
+                claim_verification=(
+                    claim_verification
+                ),
+                confidence=confidence,
+                citations=citations,
+            )
+
+            # =================================================
+            # PERSIST COMPLETED RESULT
+            # =================================================
+
+            completed_at = datetime.now(
+                timezone.utc
+            )
+
+            analysis_record = (
+                analysis_repository.complete_analysis(
+                    analysis_id=analysis_id,
+                    result=result,
+                    evidence=context.evidence,
+                    completed_at=completed_at,
+                )
+            )
+
+            total_elapsed = (
+                time.perf_counter()
+                - total_started
+            )
+
+            logger.info(
+                "ANALYSIS COMPLETED: id=%s "
+                "analysis=%.3fs verification=%.3fs "
+                "contradiction=%.3fs total=%.3fs",
+                analysis_id,
+                analysis_elapsed,
+                verification_elapsed,
+                contradiction_elapsed,
+                total_elapsed,
+            )
+
+            return result, analysis_record
+
         except Exception:
+
             logger.exception(
-                "Failed to persist analysis result for user=%s",
+                "Analysis failed: id=%s user=%s",
+                analysis_id,
                 user_id,
             )
+
+            try:
+                analysis_repository.mark_analysis_failed(
+                    analysis_id=analysis_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to mark analysis as failed: "
+                    "id=%s",
+                    analysis_id,
+                )
+
             raise
 
-        return result
+    # =========================================================
+    # CLAIM DEDUPLICATION
+    # =========================================================
 
     @staticmethod
     def _deduplicate_claims(
         claims: tuple[str, ...],
     ) -> tuple[str, ...]:
-        """Remove duplicate claims (normalized)."""
+        """Remove duplicate claims."""
+
         seen: set[str] = set()
+
         unique_claims: list[str] = []
 
         for claim in claims:
+
             normalized = " ".join(
                 claim.strip().lower().split()
             )
 
-            if not normalized or normalized in seen:
+            if (
+                not normalized
+                or normalized in seen
+            ):
                 continue
 
             seen.add(normalized)
-            unique_claims.append(claim.strip())
+
+            unique_claims.append(
+                claim.strip()
+            )
 
         return tuple(unique_claims)
+
+    # =========================================================
+    # CITATIONS
+    # =========================================================
 
     @staticmethod
     def _collect_citations(
@@ -523,34 +959,61 @@ class AnalysisService:
         legal,
         historical,
     ) -> tuple[Citation, ...]:
-        """Collect unique citations from all perspectives."""
+        """Collect unique citations."""
+
         citations: list[Citation] = []
+
         seen: set[str] = set()
 
-        for result in (military, legal, historical):
+        for result in (
+            military,
+            legal,
+            historical,
+        ):
+
             for citation in result.citations:
+
                 if citation.evidence_id in seen:
                     continue
 
-                seen.add(citation.evidence_id)
-                citations.append(citation)
+                seen.add(
+                    citation.evidence_id
+                )
+
+                citations.append(
+                    citation
+                )
 
         return tuple(citations)
+
+    # =========================================================
+    # RESOLVE CHUNK TEXT
+    # =========================================================
 
     def _resolve_chunk_texts(
         self,
         results,
     ) -> dict[str, str]:
         """Resolve chunk IDs to their full text."""
+
         chunks = get_chunks_by_id(
-            [result.chunk_id for result in results],
-            chunk_store_dir=self._context_builder.chunk_store_dir,
+            [
+                result.chunk_id
+                for result in results
+            ],
+            chunk_store_dir=(
+                self._context_builder.chunk_store_dir
+            ),
         )
 
         return {
             chunk_id: chunk.text
             for chunk_id, chunk in chunks.items()
         }
+
+    # =========================================================
+    # EVIDENCE / PERSPECTIVE MATCH
+    # =========================================================
 
     @staticmethod
     def _evidence_matches_perspective(
@@ -559,10 +1022,20 @@ class AnalysisService:
         perspective: Perspective,
     ) -> bool:
         """Check if evidence is relevant to a perspective."""
-        if evidence.source in {"UCDP GED", "UCDP Dyadic"}:
-            return perspective == Perspective.MILITARY
+
+        if evidence.source in {
+            "UCDP GED",
+            "UCDP Dyadic",
+        }:
+            return (
+                perspective
+                == Perspective.MILITARY
+            )
 
         if evidence.perspective is not None:
-            return evidence.perspective == perspective
+            return (
+                evidence.perspective
+                == perspective
+            )
 
         return False
