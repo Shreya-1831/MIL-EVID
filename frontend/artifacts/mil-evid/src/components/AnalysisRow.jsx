@@ -127,7 +127,7 @@ function AnalysisRow({ item, onDelete }) {
           sm:justify-end
         "
       >
-        <div className="min-w-[72px] text-right">
+        <div className="min-w-18 text-right">
           <div
             className="
               font-mono-ui
