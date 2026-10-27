@@ -1,588 +1,709 @@
 # MIL-EVID
+## An Evidence-Grounded Hybrid RAG Framework for Multi-Perspective Military Situation Analysis
 
-## Static–Dynamic Evidence-Grounded Hybrid Retrieval-Augmented Generation Framework for Multi-Perspective Military Situation Analysis
+MIL-EVID is a research-oriented evidence analysis framework designed to support structured examination of complex military and geopolitical situations. It combines heterogeneous static knowledge sources with dynamically retrieved conflict-event information, hybrid lexical and semantic retrieval, evidence reranking, multi-perspective language-model analysis, and post-generation verification.
 
-MIL-EVID is an evidence-grounded research prototype for analyzing complex military and geopolitical situations from multiple analytical perspectives.
+Rather than treating a language model's response as an isolated answer, MIL-EVID preserves the relationship between retrieved evidence and generated analysis. Its workflow is designed to improve evidence relevance, traceability, transparency, and the identification of potentially unsupported or contradictory claims.
 
-The system accepts a natural-language query, retrieves relevant evidence from static and dynamic sources, combines lexical and semantic retrieval, reranks evidence using a cross-encoder, and generates structured analysis across three perspectives:
-
-- **Military**
-- **Legal**
-- **Historical**
-
-The system also performs claim verification, contradiction detection, confidence scoring, and citation generation while maintaining persistent analysis history through PostgreSQL.
-
-MIL-EVID is designed to provide an auditable evidence-analysis workflow rather than an opaque generative response.
+> **Scope:** MIL-EVID is an academic research and evidence-analysis system. It is not intended for targeting, weapons guidance, tactical engagement, operational military planning, or autonomous military decision-making.
 
 ---
 
-## Scope
+## Table of Contents
 
-MIL-EVID is an **evidence-analysis and research system only**.
-
-It does **not** perform or support:
-
-- Military targeting
-- Weapon selection
-- Attack optimization
-- Operational military planning
-- Autonomous military decision-making
-- Target identification
-- Tactical engagement recommendations
-
-The system focuses on evidence retrieval, source-grounded analysis, verification, contradiction identification, and explainability.
-
----
-
-# Project Status
-
-MIL-EVID has progressed from the initial ingestion and retrieval foundation into an integrated evidence-grounded analysis pipeline.
-
-### Implementation Status
-
-- [x] **Phase 1** — Project scaffolding, configuration, domain models, exception hierarchy, FastAPI application
-- [x] **Phase 2** — Text preprocessing: cleaning, normalization, deduplication, chunking
-- [x] **Phase 2.5** — PDF ingestion, country-scope filtering, local chunk storage, metadata persistence
-- [x] **Phase 3** — BM25 lexical retrieval
-- [x] **Phase 3** — Dense vector retrieval using Sentence Transformers and FAISS
-- [x] **Phase 4** — Reciprocal Rank Fusion (RRF)
-- [x] **Phase 4** — Cross-encoder reranking
-- [x] **Phase 4** — Hybrid retrieval pipeline
-- [x] **Phase 5** — Dynamic evidence retrieval
-- [x] **Phase 5** — ACLED integration
-- [x] **Phase 6** — Perspective-aware retrieval
-- [x] **Phase 6** — Military perspective analysis
-- [x] **Phase 6** — Legal perspective analysis
-- [x] **Phase 6** — Historical perspective analysis
-- [x] **Phase 7** — Claim verification
-- [x] **Phase 7** — Contradiction detection
-- [x] **Phase 8** — Confidence scoring
-- [x] **Phase 9** — End-to-end pipeline orchestration
-- [x] **Phase 9** — Real-time backend analysis status tracking
-- [x] **Phase 10** — FastAPI analysis, evidence, retrieval, claims, perspective, ingestion, system, and authentication routes
-- [x] **Phase 11** — PostgreSQL persistence for queries, analyses, perspectives, evidence, claims, and contradictions
-- [x] **Phase 11** — Analysis history and persistent analysis records
-- [x] **Phase 12** — React-based analyst dashboard and analysis interface
-- [x] **Phase 12** — Frontend polling for real backend analysis progress
-- [x] **Phase 12** — JWT authentication and token refresh workflow
-- [x] **Phase 12** — Dashboard statistics and evidence-source visualization
-- [x] **Phase 12** — Analysis history and persisted result visualization
-- [ ] **Phase 13** — Extended evaluation, benchmarking, and research experiments
+- [Objectives](#objectives)
+- [Key Capabilities](#key-capabilities)
+- [System Architecture](#system-architecture)
+- [End-to-End Workflow](#end-to-end-workflow)
+- [Hybrid Retrieval Pipeline](#hybrid-retrieval-pipeline)
+- [Evidence Sources](#evidence-sources)
+- [Multi-Perspective Analysis](#multi-perspective-analysis)
+- [Evidence Verification and Confidence](#evidence-verification-and-confidence)
+- [Data Processing and Storage](#data-processing-and-storage)
+- [Technology Stack](#technology-stack)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Installation and Configuration](#installation-and-configuration)
+- [Running the Application](#running-the-application)
+- [Data Ingestion and Indexing](#data-ingestion-and-indexing)
+- [API Overview](#api-overview)
+- [Testing](#testing)
+- [Configuration Areas](#configuration-areas)
+- [Research Evaluation](#research-evaluation)
+- [Limitations](#limitations)
+- [Security Considerations](#security-considerations)
+- [Future Work](#future-work)
+- [License](#license)
+- [Disclaimer](#disclaimer)
 
 ---
 
-# Key Features
+## Objectives
 
-## 1. Hybrid Evidence Retrieval
+MIL-EVID investigates how a unified Retrieval-Augmented Generation (RAG) pipeline can support complex military situation analysis by combining:
 
-MIL-EVID combines multiple retrieval strategies:
+1. **Hybrid retrieval** to capture both exact terminology and semantic similarity.
+2. **Evidence fusion and reranking** to improve the relevance of candidate passages.
+3. **Static and dynamic evidence integration** to combine curated reference material with time-sensitive conflict-event data.
+4. **Multi-perspective analysis** across military, legal, and historical dimensions.
+5. **Claim-level verification and contradiction detection** to identify analytical statements that may be unsupported or inconsistent with the available evidence.
+6. **Confidence-aware response generation** to communicate evidence-quality signals.
+7. **Evidence provenance and citations** to make the analysis easier to inspect and audit.
+8. **Persistent analysis records** to support history, review, and system evaluation.
 
-- BM25 lexical retrieval
-- Dense semantic retrieval
-- FAISS vector search
-- Reciprocal Rank Fusion
-- Cross-encoder reranking
+## Key Capabilities
 
-This allows the system to capture both:
+### 1. Hybrid Evidence Retrieval
 
-- Exact keyword and terminology matches
-- Semantically related evidence
+The retrieval subsystem combines:
+
+- **BM25** for lexical retrieval and exact terminology matching.
+- **Sentence Transformers** for dense semantic embeddings.
+- **FAISS** for efficient vector similarity search.
+- **Reciprocal Rank Fusion (RRF)** to combine lexical and semantic result rankings.
+- **Cross-encoder reranking** to refine candidate ordering based on query–evidence relevance.
+
+This design aims to reduce dependence on a single retrieval method.
+
+### 2. Static and Dynamic Evidence
+
+The framework supports offline processing and indexing of static sources, while configured dynamic-source integration can retrieve current event information at analysis time. Dynamic evidence can supplement, rather than replace, the indexed evidence corpus.
+
+### 3. Three Analytical Perspectives
+
+Analysis is structured into three perspectives:
+
+- **Military:** relevant military developments, conflict dynamics, and broader situation context.
+- **Legal:** relevant legal frameworks and international humanitarian law, based on retrieved material.
+- **Historical:** historical context, precedents, agreements, and relevant developments over time.
+
+The perspectives are intended to complement one another; they are not independent guarantees of correctness.
+
+### 4. Evidence Verification
+
+The analysis pipeline includes claim verification and contradiction detection. These stages compare generated claims and retrieved passages using the available verification/NLI components and surface potential support gaps or inconsistencies for review.
+
+### 5. Confidence Scoring
+
+MIL-EVID calculates an evidence-based confidence signal using factors such as relevance, agreement, freshness, and source reliability. The score is an analytical indicator, not a calibrated probability that a statement is true.
+
+### 6. Analyst Interface and Persistence
+
+The React interface supports query submission, multi-perspective result presentation, evidence inspection, confidence information, and analysis history. FastAPI exposes the backend pipeline through API routes, while PostgreSQL stores application and analysis metadata.
 
 ---
 
-## 2. Perspective-Aware Analysis
-
-The system analyzes retrieved evidence from three perspectives:
+## System Architecture
 
 ```text
-                    Evidence
-                       │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-     Military         Legal       Historical
-        │              │              │
-        └──────────────┼──────────────┘
-                       ▼
-              Multi-Perspective
-                  Synthesis
-```
-
-### Military Perspective
-
-Focuses on military developments, conflict dynamics, strategic context, and relevant evidence.
-
-### Legal Perspective
-
-Examines relevant international humanitarian law and legal frameworks supported by retrieved evidence.
-
-### Historical Perspective
-
-Examines historical context, precedents, agreements, and conflict developments relevant to the query.
-
----
-
-## 3. Static and Dynamic Evidence
-
-MIL-EVID supports two evidence categories.
-
-### Static Evidence
-
-Static sources are processed offline and indexed for retrieval.
-
-Current source categories include:
-
-| Source | Role |
-|---|---|
-| **UCDP** | Conflict and event data |
-| **ICRC Customary IHL** | International humanitarian law evidence |
-| **UN Peacemaker** | Peace agreements and conflict-resolution documents |
-| **SIPRI** | Arms transfer and security-related data |
-| **ACLED** | Dynamic conflict and event evidence |
-
-### Dynamic Evidence
-
-Dynamic evidence can be retrieved at analysis time.
-
-The current dynamic retrieval layer supports **ACLED-based evidence retrieval**, including configurable country and date parameters.
-
-Dynamic evidence can be incorporated alongside static retrieval results during analysis.
-
----
-
-# System Architecture
-
-The current end-to-end architecture is:
-
-```text
-                         User
-                          │
-                          ▼
-                  Natural Language Query
-                          │
-                          ▼
-                  ┌─────────────────┐
-                  │ Query Processing│
-                  └────────┬────────┘
-                           │
-                           ▼
-                Perspective-Aware Retrieval
-                           │
-             ┌─────────────┼─────────────┐
-             ▼             ▼             ▼
-         Military        Legal       Historical
-             │             │             │
-             └─────────────┼─────────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ Hybrid Retrieval│
-                  └────────┬────────┘
-                           │
-                  ┌────────┴────────┐
-                  ▼                 ▼
-                BM25              FAISS
-           Lexical Retrieval   Dense Retrieval
-                  │                 │
-                  └────────┬────────┘
-                           ▼
+                         Analyst
+                            |
+                            v
+                  Natural-Language Query
+                            |
+                            v
+                    Query Processing
+                            |
+                            v
+                 Perspective-Aware Pipeline
+                            |
+             +--------------+--------------+
+             |                             |
+             v                             v
+      Static Evidence                Dynamic Evidence
+   (processed and indexed)          (configured source API)
+             |                             |
+             +--------------+--------------+
+                            |
+                            v
+                    Hybrid Retrieval
+                    /              \
+                   v                v
+             BM25 Retrieval    Dense Retrieval
+                                  |
+                         Sentence Transformer
+                                  |
+                                 FAISS
+                   \                /
+                    +--------------+
+                            |
+                            v
                   Reciprocal Rank Fusion
-                           │
-                           ▼
-                 Cross-Encoder Reranking
-                           │
-                           ▼
+                            |
+                            v
+                  Cross-Encoder Reranking
+                            |
+                            v
                     Evidence Selection
-                           │
-                           ▼
-                Evidence Context Builder
-                           │
-                           ▼
-               Multi-Perspective Analysis
-                 ┌─────────┼─────────┐
-                 ▼         ▼         ▼
-              Military   Legal   Historical
-                 │         │         │
-                 └─────────┼─────────┘
-                           ▼
-                  Claim Extraction
-                           │
-                 ┌─────────┴─────────┐
-                 ▼                   ▼
-          Claim Verification   Contradiction Detection
-                 │                   │
-                 └─────────┬─────────┘
-                           ▼
-                    Confidence Scoring
-                           │
-                           ▼
-                  Citation Generation
-                           │
-                           ▼
-                 Persisted Analysis
-                           │
-                           ▼
-                Evidence-Grounded Response
+                            |
+                            v
+                 Evidence Context Construction
+                            |
+                            v
+                 Multi-Perspective Analysis
+                  /          |           \
+                 v           v            v
+             Military       Legal      Historical
+                  \          |           /
+                   +---------+----------+
+                            |
+                            v
+                    Claim Verification
+                            |
+                            v
+                   Contradiction Detection
+                            |
+                            v
+                     Confidence Scoring
+                            |
+                            v
+                 Evidence-Linked Response
+                            |
+                            v
+                 PostgreSQL Persistence
+                            |
+                            v
+                     React Dashboard
 ```
+
+### Main Components
+
+| Component | Responsibility |
+|---|---|
+| Data ingestion | Loads source datasets and documents for processing. |
+| Preprocessing | Normalizes text and metadata, removes unwanted characters, and handles duplicates. |
+| Chunking | Splits documents into retrieval-sized passages while preserving useful context. |
+| BM25 index | Supports lexical retrieval over indexed evidence. |
+| Embedding model | Encodes evidence passages and queries into dense vectors. |
+| FAISS index | Supports dense vector similarity search. |
+| RRF fusion | Combines candidate rankings from lexical and dense retrieval. |
+| Cross-encoder reranker | Reorders retrieved candidates using query–passage relevance. |
+| Perspective analysis | Produces military, legal, and historical analyses from the selected evidence. |
+| Claim verifier | Assesses whether generated claims are supported by available evidence. |
+| Contradiction detector | Identifies potentially conflicting evidence or claims. |
+| Confidence scorer | Aggregates evidence-quality signals into a confidence indicator. |
+| FastAPI backend | Exposes analysis and supporting capabilities through API endpoints. |
+| PostgreSQL | Stores application state, metadata, and persistent analysis records. |
+| React frontend | Provides the analyst-facing interface and analysis history. |
 
 ---
 
-# Real-Time Analysis Pipeline
+## End-to-End Workflow
 
-The frontend does not simulate analysis progress.
+A typical analysis follows these stages:
 
-Analysis stages are driven by the backend processing state stored in PostgreSQL.
+1. **Query submission:** The analyst enters a natural-language question about a military or geopolitical situation.
+2. **Query processing:** The backend prepares the query and checks whether it is sufficiently specific for analysis.
+3. **Evidence retrieval:** BM25 and dense retrieval independently identify candidate evidence.
+4. **Rank fusion:** RRF merges the candidate lists into a combined ranking.
+5. **Reranking:** A cross-encoder refines the ranking of retrieved evidence.
+6. **Evidence selection:** The system selects a bounded set of relevant passages and retains their source metadata.
+7. **Context construction:** The selected passages are assembled into an evidence context for generation.
+8. **Multi-perspective analysis:** The language model produces military, legal, and historical perspectives.
+9. **Claim verification:** Generated claims are compared with the available evidence.
+10. **Contradiction detection:** Potentially conflicting evidence or claims are identified.
+11. **Confidence scoring:** Evidence relevance, agreement, freshness, and reliability signals contribute to the confidence indicator.
+12. **Response assembly:** The system returns structured analysis with available evidence references and verification information.
+13. **Persistence:** Analysis state and supported results are stored for later access through the application.
 
-The current processing states are:
-
-```text
-q   → Query Processing
-r   → Perspective Retrieval
-e   → Evidence Retrieval
-rr  → Reranking
-mp  → Multi-Perspective Analysis
-cv  → Claim Verification
-cd  → Contradiction Detection
-cs  → Confidence Scoring
-rg  → Response Generation
-```
-
-Final states:
-
-```text
-completed
-failed
-```
-
-The frontend polls the backend analysis endpoint while processing is active.
-
-```text
-Frontend
-    │
-    │ POST /api/analysis
-    ▼
-Backend creates analysis record
-    │
-    │ returns analysis_id
-    ▼
-Frontend starts polling
-    │
-    │ GET /api/analysis/{id}
-    │
-    ├── q
-    ├── r
-    ├── e
-    ├── rr
-    ├── mp
-    ├── cv
-    ├── cd
-    ├── cs
-    ├── rg
-    └── completed
-```
-
-This ensures that the processing interface reflects actual backend execution rather than a frontend timer or simulated progress sequence.
+The actual evidence available to a query depends on the indexed corpus, source coverage, retrieval settings, and any configured dynamic-source access.
 
 ---
 
-# Evidence Retrieval Architecture
+## Hybrid Retrieval Pipeline
 
-MIL-EVID uses a hybrid retrieval architecture.
+### BM25 Lexical Retrieval
 
-```text
-                         Query
-                           │
-              ┌────────────┴────────────┐
-              ▼                         ▼
-          BM25 Search             Dense Search
-              │                         │
-              │                    Sentence
-              │                   Transformer
-              │                         │
-              │                       FAISS
-              │                         │
-              └────────────┬────────────┘
-                           ▼
-                    RRF Fusion
-                           │
-                           ▼
-                 Cross-Encoder Reranker
-                           │
-                           ▼
-                 Ranked Evidence Set
-```
+BM25 ranks passages using lexical overlap and term-frequency-based relevance. It is useful for exact names, dates, terminology, and domain-specific phrases that may be important in military and legal documents.
 
-### BM25
+### Dense Semantic Retrieval
 
-BM25 provides lexical retrieval for exact terms, entities, names, and domain-specific terminology.
+The embedding model represents queries and evidence chunks in a shared vector space. This enables retrieval of semantically related passages even when the query and evidence use different wording.
 
-### Dense Retrieval
-
-Sentence Transformer embeddings are used to represent evidence chunks semantically.
-
-The current embedding model is:
+**Embedding model:**
 
 ```text
 sentence-transformers/all-MiniLM-L6-v2
 ```
 
-Dense vectors are indexed using FAISS.
+The model is intentionally specified as part of the project configuration and should not be silently replaced when reproducing the reported pipeline.
+
+### FAISS Vector Search
+
+FAISS indexes dense vectors and retrieves nearest-neighbour candidates. The implementation uses an inner-product index (`IndexFlatIP`); vector normalization and similarity interpretation should remain consistent between indexing and querying.
 
 ### Reciprocal Rank Fusion
 
-RRF combines results from lexical and semantic retrieval into a unified ranking.
+RRF combines rankings from the BM25 and dense retrieval channels. It uses rank positions rather than directly comparing scores from different retrieval systems, helping integrate the two result lists.
+
+Conceptually:
+
+```text
+BM25 candidate ranking ---------+
+                                 +--> Reciprocal Rank Fusion --> Combined ranking
+FAISS candidate ranking --------+
+```
 
 ### Cross-Encoder Reranking
 
-The retrieved candidates are reranked using a cross-encoder to improve query-evidence relevance before the evidence is passed to the analysis stage.
+The cross-encoder evaluates query–passage pairs and reranks the fused candidate set. This additional relevance-estimation step is applied before evidence is supplied to the generation stage.
+
+### Retrieval Traceability
+
+Evidence metadata is retained through retrieval and analysis so that the system can associate relevant output with its source and evidence record. Retrieval relevance does not, by itself, establish that a source is authoritative or that a claim is true.
 
 ---
 
-# Perspective-Aware Retrieval
+## Evidence Sources
 
-Retrieval is performed with awareness of the requested analytical perspectives.
+The framework integrates heterogeneous source categories to cover conflict events, military-related data, legal material, and peace processes.
 
-The system currently uses exactly three perspectives:
+| Source | Evidence category | Intended contribution |
+|---|---|---|
+| **UCDP Georeferenced Event Dataset (GED)** | Conflict-event records | Structured information about organized violence and conflict events. |
+| **UCDP Dyadic Dataset** | Conflict-party records | Information about conflict dyads and parties to conflict. |
+| **SIPRI** | Security and arms-transfer information | Security-related data and relevant arms-transfer context. |
+| **ICRC International Humanitarian Law (IHL)** | Legal documents and reference material | Legal evidence relevant to international humanitarian law. |
+| **UN Peacemaker** | Peace agreements and documents | Agreements, negotiations, and conflict-resolution context. |
+| **ACLED API** | Dynamic conflict-event data | Configurable event information retrieved from an external source when access is available. |
+
+### Static Evidence
+
+Static datasets and documents are processed into normalized evidence chunks and indexed for retrieval. This permits repeatable retrieval over a locally prepared corpus.
+
+### Dynamic Evidence
+
+The ACLED integration provides a dynamic evidence path. Availability depends on valid configuration, access permissions, network connectivity, and the external source's coverage. Dynamic results should be interpreted with their time and source context.
+
+### Geographic Scope
+
+The prepared UCDP datasets and country-focused processing use a defined set of countries relevant to the project. The supported scope is determined by the configured data filters and the evidence actually present in the corpus; it should not be assumed that every source has equal coverage for every country.
+
+---
+
+## Multi-Perspective Analysis
+
+### Military Perspective
+
+Examines relevant military developments and conflict dynamics using retrieved evidence. The output is analytical and descriptive, not a recommendation for operational action.
+
+### Legal Perspective
+
+Examines applicable legal concepts and international humanitarian law references present in the evidence. Legal output is a research aid and does not replace qualified legal advice or authoritative legal interpretation.
+
+### Historical Perspective
+
+Examines relevant prior events, historical context, agreements, and developments that may help explain the situation under analysis.
+
+### Perspective-Aware Evidence Selection
+
+Evidence may be relevant to more than one perspective. Perspective labels guide organization and analysis but should not be treated as rigid source restrictions. Source provenance is retained so that an analyst can inspect why a passage was included.
+
+---
+
+## Evidence Verification and Confidence
+
+### Claim Verification
+
+Claim verification evaluates generated analytical statements against retrieved evidence. Its purpose is to flag claims that appear supported, insufficiently supported, or inconsistent with the available passages. Results remain dependent on retrieval coverage and the behavior of the underlying language/NLI models.
+
+### Contradiction Detection
+
+The contradiction-detection process identifies potentially conflicting evidence. A conceptual pipeline is:
 
 ```text
-Military
-Legal
-Historical
-```
-
-The retrieved evidence retains source and perspective metadata so that downstream analysis can distinguish evidence provenance and relevance.
-
-Example evidence metadata:
-
-```text
-Source:
-UCDP Dyadic
-
-Perspective:
-Historical
-
-Chunk:
-ucdp-dyadic-14117-2022::chunk-0000
-
-Reranker Score:
-0.1157
-```
-
-Perspective-aware retrieval allows evidence from one source category to remain useful to another analytical perspective when the evidence is relevant to the query.
-
----
-
-# Evidence Context Construction
-
-After retrieval and reranking, the system constructs an evidence context for the language model.
-
-The context builder is responsible for:
-
-- Selecting relevant evidence
-- Preserving source metadata
-- Maintaining perspective information
-- Preparing evidence for multi-perspective analysis
-- Supporting citation generation
-- Incorporating dynamic evidence when available
-
-The final response is therefore generated from a structured evidence context rather than an unrestricted language-model prompt.
-
----
-
-# Claim Verification
-
-MIL-EVID performs claim-level verification after multi-perspective analysis.
-
-The verification stage evaluates generated claims against available evidence using the system's natural-language inference infrastructure.
-
-The verification process is intended to identify whether generated claims are adequately supported by retrieved evidence.
-
----
-
-# Contradiction Detection
-
-MIL-EVID also detects potentially contradictory evidence.
-
-The contradiction detection pipeline uses:
-
-```text
-Evidence
-   ↓
+Retrieved Evidence
+       |
+       v
 Event / Topic Pre-Clustering
-   ↓
+       |
+       v
 Candidate Evidence Pairs
-   ↓
-NLI Analysis
-   ↓
-Contradiction Identification
+       |
+       v
+Natural-Language Inference
+       |
+       v
+Potential Contradictions for Review
 ```
 
-Pre-clustering reduces unnecessary pairwise comparisons by restricting NLI evaluation to potentially related evidence.
+Pre-clustering can reduce unnecessary pairwise comparisons by focusing evaluation on potentially related passages. A detected contradiction may reflect differences in time, definitions, reporting scope, or source quality; it requires contextual interpretation.
 
-A shared NLI adapter is used for both:
+### Confidence Scoring
 
-- Claim verification
-- Contradiction detection
+The confidence component uses evidence-related signals, including:
+
+- Query–evidence relevance
+- Agreement across retrieved evidence
+- Evidence freshness where available
+- Source reliability indicators
+- Verification-related signals supported by the implementation
+
+The displayed score is an indicator for prioritizing review. Unless separately calibrated and validated, it must **not** be interpreted as a statistical probability of correctness.
+
+### Citation and Provenance
+
+The system retains evidence references and source metadata to make the analysis inspectable. Depending on the source record, metadata may include source name, source type, publication or event date, evidence identifier, perspective, and a local evidence reference.
 
 ---
 
-# Confidence Scoring
+## Data Processing and Storage
 
-The system calculates an overall confidence score using evidence and verification signals.
+### Preprocessing
 
-Confidence is represented internally on a:
+The ingestion pipeline includes:
 
-```text
-0–100 scale
-```
+- Unicode normalization
+- Control-character removal
+- Whitespace normalization
+- Date and URL normalization where applicable
+- Metadata cleaning
+- Exact duplicate detection
+- Sentence-aware chunking with configurable chunk size and overlap
+- Country-scope filtering for applicable structured datasets
 
-For example:
+Near-duplicate processing may be disabled for structured sources where record-level semantics make it inappropriate.
 
-```text
-47.1
-```
+### Storage Separation
 
-is displayed as:
-
-```text
-47.1%
-```
-
-Confidence is intended to provide an explainable indication of evidence-supported analysis quality rather than a guarantee of factual correctness.
-
----
-
-# Citation Support
-
-MIL-EVID preserves evidence metadata throughout the retrieval and analysis pipeline.
-
-The system can associate generated analytical content with the evidence used to support it.
-
-Citation-related metadata can include:
-
-- Source name
-- Source type
-- Publication information
-- Evidence chunk identifier
-- Perspective
-- Evidence text or local chunk reference
-
-This enables the resulting analysis to remain traceable to its evidence base.
-
----
-
-# Storage Architecture
-
-MIL-EVID deliberately separates retrieval data from relational metadata.
+MIL-EVID separates large retrieval artefacts from relational application metadata.
 
 | Data | Storage | Purpose |
 |---|---|---|
-| Chunk text | Local JSONL files | Source of truth for retrieval |
-| Chunk metadata | PostgreSQL | Lookup and citation metadata |
-| Embeddings | FAISS index files | Dense retrieval |
-| BM25 index | Local index files | Lexical retrieval |
-| Query history | PostgreSQL | Persistent user analysis history |
-| Analysis records | PostgreSQL | Analysis lifecycle and results |
-| Perspective results | PostgreSQL | Persisted multi-perspective analysis |
-| Claims | PostgreSQL | Claim-level persistence |
-| Contradictions | PostgreSQL | Contradiction persistence |
-| Dynamic evidence metadata | PostgreSQL | Freshness and persistence |
+| Full evidence chunk text | Local JSONL files | Stores the text used during retrieval and analysis. |
+| Evidence and chunk metadata | PostgreSQL | Supports lookup, provenance, and application-level references. |
+| Dense vectors | Local FAISS index files | Supports semantic retrieval. |
+| Lexical index | Local BM25 index files | Supports lexical retrieval. |
+| Users and application records | PostgreSQL | Supports authenticated application use. |
+| Queries and analyses | PostgreSQL | Supports persistent analysis history and lifecycle state. |
+| Perspective results, claims, and contradictions | PostgreSQL | Stores structured analysis outputs where implemented. |
 
-Chunk text is stored locally in:
+Common artefact locations in the repository include:
 
 ```text
 backend/data/processed/chunks/
-```
-
-FAISS indexes are stored in:
-
-```text
 backend/indexes/faiss/
-```
-
-BM25 indexes are stored in:
-
-```text
 backend/indexes/bm25/
 ```
 
-The PostgreSQL database primarily stores metadata, application state, and persisted analysis results.
+Use the actual repository configuration as the source of truth if these paths differ in a particular checkout. Large local chunk files and generated indexes may need to be created by the ingestion/indexing workflow rather than downloaded from version control.
+
+### Database
+
+PostgreSQL stores application and evidence metadata, as well as persistent analysis state. SQLAlchemy is used for database access. Full evidence text and retrieval indexes remain outside PostgreSQL to avoid storing the entire retrieval corpus as relational rows.
 
 ---
 
-# Database Architecture
+## Technology Stack
 
-MIL-EVID uses PostgreSQL with SQLAlchemy.
+| Layer | Technologies |
+|---|---|
+| Programming languages | Python, JavaScript |
+| Frontend | React.js, React Router, Recharts, Lucide React, utility-based styling |
+| Backend API | FastAPI, Uvicorn, Pydantic |
+| Database | PostgreSQL, SQLAlchemy |
+| Data processing | Pandas, NumPy |
+| Lexical retrieval | `rank-bm25` / BM25Okapi |
+| Embeddings | Sentence Transformers |
+| Dense vector search | FAISS |
+| Ranking | Reciprocal Rank Fusion, cross-encoder reranking |
+| Language-model inference | Ollama with a configured local Llama-family model |
+| Verification | Natural-language inference components for claim verification and contradiction detection |
+| Dynamic evidence | ACLED API integration |
+| Version control | Git, GitHub |
+| Testing | pytest |
 
-The database stores persistent application state including:
-
-```text
-Users
-  │
-  ▼
-Queries
-  │
-  ▼
-Analyses
-  │
-  ├── Perspectives
-  ├── Evidence
-  ├── Claims
-  └── Contradictions
-```
-
-Analysis lifecycle information includes:
-
-- Analysis ID
-- Query ID
-- Status
-- Final answer
-- Overall confidence
-- Start time
-- Completion time
-
-The analysis status is stored using compact processing-stage identifiers such as:
-
-```text
-q
-r
-e
-rr
-mp
-cv
-cd
-cs
-rg
-completed
-failed
-```
-
-No separate migration-only progress columns are required for the current implementation.
+Exact package versions and required configuration values should be taken from the repository's dependency and environment-example files.
 
 ---
 
-# Authentication
+## Repository Structure
 
-MIL-EVID provides API authentication and user-specific analysis history.
-
-Authentication endpoints include:
+The following is a logical overview. Some filenames and subdirectories may vary between revisions.
 
 ```text
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/refresh
-POST /api/auth/logout
-GET  /api/auth/me
+mil-evid/
+├── README.md
+├── backend/
+│   ├── app/
+│   │   ├── api/              # API routers and schemas
+│   │   ├── core/             # Configuration and core application logic
+│   │   ├── database/         # Database setup and persistence
+│   │   ├── domain/           # Domain models and contracts
+│   │   ├── modules/
+│   │   │   ├── query/        # Query processing and specificity checks
+│   │   │   ├── ingestion/    # Evidence ingestion and preprocessing
+│   │   │   ├── retrieval/    # BM25, dense retrieval, fusion, reranking
+│   │   │   └── analysis/     # Perspectives, verification, confidence
+│   │   ├── repositories/     # Persistence access
+│   │   ├── services/         # Pipeline orchestration and application services
+│   │   └── ...
+│   ├── data/
+│   │   ├── raw/
+│   │   ├── processed/
+│   │   │   └── chunks/
+│   │   └── dynamic/
+│   ├── indexes/
+│   │   ├── bm25/
+│   │   └── faiss/
+│   ├── scripts/              # Dataset processing and ingestion scripts
+│   ├── tests/
+│   ├── .env.example
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── services/
+│   ├── public/
+│   └── package.json
+└── ...
 ```
 
-The frontend maintains authenticated sessions and supports access-token refresh when a token expires during long-running analysis polling.
+For exact entry points and module names, inspect the current checked-out source tree.
 
 ---
 
-# API
+## Prerequisites
 
-The FastAPI backend exposes multiple API modules.
+The following are recommended starting requirements for local development and evidence processing:
 
-Current API areas include:
+- 64-bit Windows or Linux
+- Python environment compatible with the project's pinned dependencies
+- Node.js and the package manager specified by the frontend repository
+- PostgreSQL database and a valid connection string
+- Ollama installed locally, with the model required by the project downloaded
+- Internet access for initial dependency/model installation and configured external data access
+- At least **16 GB RAM** recommended
+- At least **256 GB SSD** recommended for datasets, indexes, models, and generated artefacts
+- A GPU with approximately **6 GB VRAM or more** can help with embedding, reranking, and local model inference; actual needs depend on model and workload
+
+The full pipeline may run on CPU, but preprocessing, embedding generation, reranking, and local language-model inference can be significantly slower without suitable hardware.
+
+---
+
+## Installation and Configuration
+
+> The commands below describe the standard local-development workflow. Confirm paths, environment variable names, scripts, and package-manager requirements against the current repository before running them.
+
+### 1. Clone the Repository
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd mil-evid
+```
+
+Replace `<YOUR_REPOSITORY_URL>` with the repository's actual Git URL.
+
+### 2. Set Up the Backend
+
+```bash
+cd backend
+python -m venv .venv
+```
+
+Activate the environment on Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+On Windows Command Prompt:
+
+```bat
+.venv\Scripts\activate.bat
+```
+
+On Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 3. Configure Environment Variables
+
+Copy the provided example configuration and edit the local file:
+
+**Windows PowerShell**
+
+```powershell
+Copy-Item .env.example .env
+```
+
+**Linux/macOS**
+
+```bash
+cp .env.example .env
+```
+
+Set the required values in `backend/.env`, based on the variables defined in `backend/.env.example`. Typical configuration categories include:
+
+- PostgreSQL connection settings
+- Application/authentication secrets
+- Model and inference settings
+- Retrieval and reranking parameters
+- Optional dynamic-source credentials, including ACLED where required
+- Logging and application configuration
+
+The exact variable names are repository-specific. Do not add real secrets to the README or commit the `.env` file.
+
+### 4. Configure PostgreSQL
+
+Create or select a PostgreSQL database and configure the connection string using the repository's environment settings. Run the database initialization or migration procedure documented by the current backend implementation.
+
+Do not assume that an empty database is ready until the project's schema initialization has completed successfully.
+
+### 5. Configure Local Language-Model Inference
+
+Install and start Ollama according to its official installation instructions. Pull the language model configured by the project and ensure the backend can reach the local Ollama service.
+
+The configured model name must match the backend settings. Model availability and hardware requirements vary.
+
+### 6. Set Up the Frontend
+
+Open a separate terminal and navigate to the frontend:
+
+```bash
+cd frontend/artifacts/mil-evid
+```
+
+Install dependencies using the package manager and lockfile present in the repository. For an npm-managed frontend:
+
+```bash
+npm install
+```
+
+If the repository uses pnpm, use its lockfile and workspace configuration instead:
+
+```bash
+pnpm install
+```
+
+Do not mix package managers in the same working tree unless the repository explicitly supports it.
+
+---
+
+## Running the Application
+
+### Start the Backend
+
+From the backend directory, use the repository's configured FastAPI entry point. The standard command, if `app.main:app` is the entry point, is:
+
+```bash
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+The local API is then typically available at:
+
+```text
+http://127.0.0.1:8000
+```
+
+FastAPI's interactive API documentation is typically available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Use the actual health-check route defined by the application rather than assuming one exists at a particular path.
+
+### Start the Frontend
+
+In a separate terminal:
+
+```bash
+cd frontend/artifacts/mil-evid
+```
+
+Run the development script defined in `frontend/package.json`, commonly:
+
+```bash
+npm run dev
+```
+
+or, for a pnpm-managed workspace:
+
+```bash
+pnpm dev
+```
+
+Use the local URL printed by the frontend development server. Configure the frontend's backend/API base URL according to the project's environment configuration.
+
+### Verify the End-to-End Setup
+
+Before submitting a full analysis, verify that:
+
+1. The backend starts without configuration or import errors.
+2. PostgreSQL is reachable and the required schema is initialized.
+3. The configured local language model is available.
+4. Required static datasets and indexes exist, or the documented ingestion/indexing steps have been completed.
+5. Optional dynamic-source credentials are configured if dynamic evidence is needed.
+6. The frontend can reach the backend.
+7. Authentication and a small test query work as expected.
+
+---
+
+## Data Ingestion and Indexing
+
+Ingestion and index-generation commands are implementation-specific. Review the scripts under `backend/scripts/` and use the documented entry points in the current repository.
+
+The conceptual ingestion flow is:
+
+```text
+Raw CSV / PDF / Structured Sources
+                 |
+                 v
+         Source-Specific Parsing
+                 |
+                 v
+       Filtering and Normalization
+                 |
+                 v
+         Duplicate Identification
+                 |
+                 v
+           Sentence-Aware Chunking
+                 |
+                 v
+       Local JSONL Chunk Persistence
+                 |
+                 +-----------------------+
+                 |                       |
+                 v                       v
+       PostgreSQL Metadata       Retrieval Index Generation
+                                         |
+                                  +------+------+
+                                  |             |
+                                  v             v
+                               BM25 Index    FAISS Index
+```
+
+### Processing Notes
+
+- Preserve source identifiers and metadata during preprocessing.
+- Apply country filters only to sources for which the project defines such a scope.
+- Treat legal documents such as IHL references according to their source-specific coverage.
+- Use consistent chunking and normalization settings when rebuilding indexes.
+- Keep the embedding model consistent between index generation and query-time retrieval.
+- Rebuild or update indexes after changing the processed corpus.
+- Avoid placing credentials or large sensitive artefacts in version control.
+
+### Dynamic Retrieval
+
+Dynamic ACLED retrieval is configured separately from the static ingestion pipeline. Its operation depends on credentials, source permissions, supported query parameters, and external availability. When the dynamic source is unavailable, analysis coverage may be limited to the indexed evidence, depending on application behavior.
+
+---
+
+## API Overview
+
+The backend exposes API areas for analysis and supporting application capabilities. The current implementation includes route groups for areas such as:
 
 ```text
 /api/auth
@@ -595,757 +716,181 @@ Current API areas include:
 /api/system
 ```
 
-### Analysis
+The precise route paths, HTTP methods, request models, and response schemas are defined by the current FastAPI routers. Use the generated OpenAPI documentation at `/docs` to inspect the authoritative API contract.
+
+### Typical Analysis Interaction
+
+Conceptually, an analysis workflow involves:
 
 ```text
-POST /api/analysis
-GET  /api/analysis
-GET  /api/analysis/{analysis_id}
-DELETE /api/analysis/{analysis_id}
+Submit query
+    |
+    v
+Receive analysis identifier
+    |
+    v
+Poll analysis status / retrieve result
+    |
+    v
+Inspect perspectives, evidence, claims,
+contradictions, confidence, and citations
 ```
 
-### Authentication
+A query may include retrieval configuration where supported by the backend. Do not assume optional fields or parameter names without checking the actual request schema.
 
-```text
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/refresh
-POST /api/auth/logout
-GET  /api/auth/me
-```
+### Analysis Lifecycle
 
-### Evidence
-
-```text
-GET /api/evidence
-GET /api/evidence/{id}
-GET /api/evidence/sources
-```
-
-Exact request and response schemas are available through the FastAPI OpenAPI documentation.
+The processing pipeline can report intermediate stages such as query processing, retrieval, reranking, perspective analysis, claim verification, contradiction detection, confidence scoring, and response generation. The frontend is designed to reflect backend processing state rather than relying solely on a simulated progress timer.
 
 ---
 
-# Frontend
+## Testing
 
-MIL-EVID includes a React-based analyst interface.
-
-The frontend provides:
-
-- Analyst dashboard
-- New analysis interface
-- Real-time analysis status
-- Analysis history
-- Evidence exploration
-- Perspective visualization
-- Evidence-source statistics
-- Confidence statistics
-- Analysis trend visualization
-- Authentication
-- User profile/session information
-
-The dashboard uses persisted backend data rather than mock analysis values.
-
----
-
-# Dashboard
-
-The dashboard provides an overview of the user's analysis history.
-
-Current dashboard metrics include:
-
-```text
-Total Analyses
-Completed Analyses
-Average Confidence
-Evidence Records
-```
-
-Additional visualizations include:
-
-- Analysis trends
-- Perspective distribution
-- Evidence source distribution
-- Recent analyses
-- Perspective coverage
-
-Confidence values are displayed consistently using the backend's 0–100 representation.
-
----
-
-# Repository Structure
-
-The repository is organized into backend and frontend components.
-
-```text
-mil-evid/
-│
-├── README.md
-├── .gitignore
-│
-├── backend/
-│   │
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── routers/
-│   │   │   └── schemas/
-│   │   │
-│   │   ├── core/
-│   │   ├── database/
-│   │   ├── domain/
-│   │   ├── modules/
-│   │   ├── repositories/
-│   │   ├── services/
-│   │   └── utils/
-│   │
-│   ├── data/
-│   │   ├── raw/
-│   │   ├── processed/
-│   │   ├── dynamic/
-│   │   └── pilot/
-│   │
-│   ├── indexes/
-│   │   ├── faiss/
-│   │   └── bm25/
-│   │
-│   ├── scripts/
-│   ├── tests/
-│   ├── .env.example
-│   └── requirements.txt
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── ...
-│   │
-│   ├── public/
-│   ├── package.json
-│   └── ...
-│
-└── ...
-```
-
----
-
-# Technology Stack
-
-## Backend
-
-- Python
-- FastAPI
-- Pydantic
-- Pydantic Settings
-- SQLAlchemy
-- PostgreSQL
-- Uvicorn
-
-## Retrieval & NLP
-
-- BM25
-- Sentence Transformers
-- FAISS
-- Cross-Encoder Reranking
-- Natural Language Inference
-- Ollama / local LLM inference
-
-## Data Processing
-
-- PDF extraction
-- Text cleaning
-- Normalization
-- Deduplication
-- Chunking
-- Country-scope filtering
-- Metadata extraction
-
-## Dynamic Evidence
-
-- ACLED
-
-## Frontend
-
-- React
-- React Router
-- Recharts
-- Lucide React
-- Tailwind CSS / utility-based styling
-
----
-
-# Setup
-
-## 1. Clone the Repository
-
-```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-cd mil-evid
-```
-
----
-
-# Backend Setup
-
-## 2. Create a Virtual Environment
-
-From the backend directory:
+Run tests from the backend environment:
 
 ```bash
 cd backend
-python -m venv .venv
-```
-
-Activate on Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-Activate on Linux/macOS:
-
-```bash
-source .venv/bin/activate
-```
-
----
-
-## 3. Install Backend Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## 4. Configure Environment Variables
-
-Create the environment file:
-
-```text
-backend/.env.example
-        ↓
-backend/.env
-```
-
-Configure the required values, including database settings and optional dynamic-source credentials.
-
-Never commit:
-
-```text
-.env
-```
-
-or other credentials and secrets to GitHub.
-
----
-
-# Running the Backend
-
-From the `backend` directory:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-The API will be available at:
-
-```text
-http://localhost:8000
-```
-
-FastAPI documentation:
-
-```text
-http://localhost:8000/docs
-```
-
-Health endpoint:
-
-```text
-http://localhost:8000/health
-```
-
----
-
-# Frontend Setup
-
-Open another terminal.
-
-```bash
-cd frontend
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Run the development server:
-
-```bash
-npm run dev
-```
-
-The frontend will normally be available at:
-
-```text
-http://localhost:5173
-```
-
-The frontend communicates with the FastAPI backend running on:
-
-```text
-http://localhost:8000
-```
-
----
-
-# Data Ingestion
-
-## PDF Sources
-
-ICRC and UN Peacemaker documents can be processed using:
-
-```bash
-python -m scripts.ingest_pdf_sources
-```
-
-To process local chunks without requiring PostgreSQL:
-
-```bash
-python -m scripts.ingest_pdf_sources --skip-db
-```
-
-Individual source categories can be selected:
-
-```bash
-python -m scripts.ingest_pdf_sources --sources icrc
-```
-
-```bash
-python -m scripts.ingest_pdf_sources --sources un_peacemaker
-```
-
-The ingestion pipeline follows:
-
-```text
-Raw Documents
-      ↓
-PDF Extraction
-      ↓
-Evidence Mapping
-      ↓
-Cleaning
-      ↓
-Normalization
-      ↓
-Deduplication
-      ↓
-Chunking
-      ↓
-Local Chunk Store
-      ↓
-Metadata Store
-```
-
-Country-scope filtering is applied to relevant UN Peacemaker sources before PDF extraction.
-
-ICRC legal material is treated as global legal evidence.
-
----
-
-# Indexing
-
-Evidence chunks are represented through two complementary retrieval mechanisms:
-
-```text
-                    Evidence Chunks
-                          │
-             ┌────────────┴────────────┐
-             ▼                         ▼
-           BM25              Sentence Transformer
-      Lexical Representation       Embeddings
-             │                         │
-             │                       FAISS
-             │                         │
-             └────────────┬────────────┘
-                          ▼
-                     RRF Fusion
-                          │
-                          ▼
-                 Cross-Encoder
-                    Reranking
-```
-
-BM25 handles lexical and exact-match retrieval.
-
-Sentence Transformers and FAISS provide semantic retrieval.
-
-RRF combines the retrieval results.
-
-The cross-encoder then reranks candidate evidence before context construction.
-
----
-
-# Dynamic Evidence
-
-Dynamic evidence is retrieved separately from static indexed evidence.
-
-Current dynamic integration includes ACLED.
-
-Dynamic retrieval supports configurable parameters such as:
-
-```text
-Country
-Start Date
-End Date
-Updated Since
-```
-
-Dynamic evidence can then be incorporated into the analysis evidence set.
-
-The architecture keeps dynamic retrieval separate from the static indexing layer so that freshness-sensitive information can be obtained at analysis time.
-
----
-
-# Analysis Request
-
-An analysis request accepts a natural-language query and retrieval configuration.
-
-Example:
-
-```json
-{
-  "query": "How did a major military conflict alter the regional military balance?",
-  "retrieval_top_k": 50,
-  "rerank_top_k": 8
-}
-```
-
-Optional ACLED parameters can be supplied when dynamic evidence is required.
-
-The backend currently uses three analytical perspectives:
-
-```text
-Military
-Legal
-Historical
-```
-
----
-
-# Analysis Lifecycle
-
-A typical analysis proceeds through:
-
-```text
-1. Query Processing
-        ↓
-2. Perspective Retrieval
-        ↓
-3. Evidence Retrieval
-        ↓
-4. Reranking
-        ↓
-5. Multi-Perspective Analysis
-        ↓
-6. Claim Verification
-        ↓
-7. Contradiction Detection
-        ↓
-8. Confidence Scoring
-        ↓
-9. Response Generation
-        ↓
-10. Persistence
-```
-
-The resulting analysis is stored in PostgreSQL for later access through the analysis history.
-
----
-
-# Architecture Decisions
-
-Several architectural decisions guide the implementation.
-
-### 1. Shared NLI Adapter
-
-A shared NLI adapter is used for both contradiction detection and claim verification because both tasks require entailment and contradiction judgments.
-
-### 2. Shared Text Generation Interface
-
-A shared `TextGenerationPort` provides a common interface for:
-
-- Query analysis
-- Perspective analysis
-- Claim extraction
-
-This allows the underlying LLM implementation to be changed without redesigning the core application architecture.
-
-### 3. Event / Topic Pre-Clustering
-
-Evidence is pre-clustered by potentially related events or topics before contradiction analysis.
-
-This reduces unnecessary pairwise NLI comparisons.
-
-### 4. Separate Dynamic Evidence Layer
-
-Dynamic evidence is retrieved independently from the static evidence indexes.
-
-This allows time-sensitive information to be incorporated without rebuilding the static corpus.
-
-### 5. PostgreSQL Persistence
-
-PostgreSQL is used for persistent application metadata and analysis history.
-
-Large retrieval corpora remain outside the relational database.
-
-### 6. Local Retrieval Indexes
-
-FAISS and BM25 indexes are stored locally for efficient retrieval.
-
-### 7. Synchronous SQLAlchemy
-
-The current implementation uses synchronous SQLAlchemy database operations while FastAPI manages API request execution and background analysis processing.
-
-### 8. Backend-Driven Processing Status
-
-Analysis progress is represented by backend state rather than frontend timers.
-
-This keeps the UI synchronized with actual pipeline execution.
-
----
-
-# Testing
-
-Run the test suite from the backend directory:
-
-```bash
 pytest
 ```
 
-Tests cover the implemented backend components including areas such as:
+For more detailed output:
 
-- Preprocessing
-- Ingestion
-- Chunking
-- Data-source mappings
-- Repository behavior
-- Application components
-
-Additional evaluation and benchmarking are part of ongoing research development.
-
----
-
-# Configuration
-
-Application configuration is managed through:
-
-```text
-backend/app/core/config.py
+```bash
+pytest -v
 ```
 
-Configuration includes values related to:
+The existing test suite covers implemented components such as preprocessing, ingestion, retrieval-related behavior, data-source mapping, repositories, and application logic. Test coverage depends on the current repository revision.
 
-- PostgreSQL connection
-- Database pool configuration
-- Dynamic-source credentials
-- Model configuration
-- Retrieval parameters
-- Reranking parameters
-- Confidence-scoring parameters
-- Application settings
+For reproducible experiments, record:
 
-See:
+- Dataset versions and filtering criteria
+- Chunk size and overlap
+- Embedding model and version
+- BM25 parameters
+- Dense retrieval settings
+- RRF configuration
+- Cross-encoder model and reranking depth
+- Language-model name and inference parameters
+- Hardware and software environment
+- Evaluation queries and relevance judgments
+- Latency and quality metrics
 
-```text
-backend/.env.example
-```
-
-for available environment variables.
-
----
-
-# Example End-to-End Workflow
-
-A typical MIL-EVID workflow is:
-
-```text
-User enters a military situation query
-              │
-              ▼
-        Query Processing
-              │
-              ▼
-    Perspective-Aware Retrieval
-              │
-              ▼
-       BM25 + Dense Search
-              │
-              ▼
-          RRF Fusion
-              │
-              ▼
-    Cross-Encoder Reranking
-              │
-              ▼
-      Evidence Context
-              │
-              ▼
-   ┌──────────┼──────────┐
-   ▼          ▼          ▼
-Military     Legal    Historical
-Analysis    Analysis   Analysis
-   │          │          │
-   └──────────┼──────────┘
-              ▼
-       Claim Verification
-              │
-              ▼
-     Contradiction Detection
-              │
-              ▼
-       Confidence Scoring
-              │
-              ▼
-      Citation Generation
-              │
-              ▼
-      Persisted Analysis
-              │
-              ▼
-      Analyst Dashboard
-```
+A passing unit-test suite does not, by itself, establish retrieval quality or factual reliability.
 
 ---
 
-# Research Objectives
+## Configuration Areas
 
-MIL-EVID is intended to investigate how retrieval-augmented generation can be combined with:
+Application configuration is defined in the backend configuration module and the environment-example file. Review the current repository before changing values.
 
-- Multi-perspective evidence analysis
-- Hybrid lexical and semantic retrieval
-- Dynamic evidence retrieval
-- Evidence provenance
-- Claim verification
-- Contradiction detection
-- Confidence estimation
-- Explainable citation support
+| Configuration area | Purpose |
+|---|---|
+| Database | PostgreSQL connection and pool behavior |
+| Authentication | Secret values and token/session behavior |
+| Data sources | Source paths, filtering, and optional API credentials |
+| Chunking | Chunk length, overlap, and text processing |
+| Embeddings | Model identifier and embedding configuration |
+| BM25 | Lexical retrieval parameters |
+| FAISS | Vector index and similarity-search configuration |
+| RRF | Rank-fusion parameters |
+| Reranking | Cross-encoder model and candidate limits |
+| Analysis | Perspective-specific prompts and generation parameters |
+| Verification | Claim-verification and contradiction-detection settings |
+| Confidence | Evidence-signal weights and score aggregation |
+| Application | Logging, runtime, and API settings |
 
-The broader objective is to improve the traceability and interpretability of generated analysis by explicitly grounding the system in retrieved evidence.
-
----
-
-# Current Development Focus
-
-The current implementation has established the core end-to-end application.
-
-Current development areas include:
-
-- Retrieval quality evaluation
-- Evidence ranking evaluation
-- Multi-perspective analysis evaluation
-- Claim verification evaluation
-- Contradiction detection evaluation
-- Confidence calibration
-- Dynamic evidence evaluation
-- Larger-scale benchmarking
-- Research experimentation
-- System performance optimization
+Avoid changing model identifiers or retrieval settings during a benchmark unless the experiment explicitly evaluates that change.
 
 ---
 
-# Limitations
+## Research Evaluation
 
-MIL-EVID remains a research prototype and has several limitations.
+MIL-EVID is designed to be evaluated as a pipeline, not only by the fluency of its generated responses. Useful evaluation dimensions include:
 
-### Evidence Coverage
+| Evaluation area | Example measures |
+|---|---|
+| Retrieval relevance | Precision@k, Recall@k, MRR, nDCG@k |
+| Ranking quality | Relevant-evidence position before and after reranking |
+| Evidence coverage | Coverage of required entities, events, dates, and perspectives |
+| Citation support | Fraction of claims linked to relevant supporting evidence |
+| Claim verification | Precision, recall, and F1 against manually labelled claims |
+| Contradiction detection | Precision, recall, and F1 against annotated evidence pairs |
+| Confidence quality | Calibration and relationship between scores and verified outcomes |
+| Runtime | End-to-end latency and stage-level latency |
+| Robustness | Behavior with ambiguous queries, conflicting reports, and missing evidence |
 
-The quality of the generated analysis depends on the coverage, freshness, and quality of the available evidence sources.
+Metrics should be calculated on a documented evaluation set with explicit annotation rules. Comparative claims against a baseline should only be reported when the same queries, corpus conditions, and evaluation criteria are used. No performance percentage is asserted here unless it is supported by a reproducible experiment.
+
+---
+
+## Limitations
+
+### Evidence Coverage and Freshness
+
+The analysis is constrained by the available source corpus, source coverage, update frequency, and configured dynamic-source access.
 
 ### Retrieval Errors
 
-Relevant evidence may not always be retrieved, while retrieved evidence may sometimes be only partially relevant.
+The retrieval system may miss relevant evidence or rank partially relevant passages highly. Hybrid retrieval and reranking reduce some retrieval limitations but do not eliminate them.
 
-### Model Limitations
+### Source Conflicts
 
-Language-model outputs may contain errors even when evidence is provided.
+Sources may differ because of reporting time, definitions, scope, or reliability. A detected conflict requires contextual review and should not automatically be treated as proof that one source is false.
+
+### Language-Model Errors
+
+Generated analysis may still contain incorrect, incomplete, or unsupported statements even when evidence is provided. Users should inspect the underlying evidence and citations.
 
 ### Confidence Interpretation
 
-The confidence score is an analytical signal and should not be interpreted as a guarantee of factual correctness.
+Confidence scores are analytical indicators. They should not be interpreted as guarantees of correctness or as calibrated probabilities unless calibration has been separately evaluated.
 
-### Dynamic Data
+### Dynamic Data Dependencies
 
-Dynamic evidence availability depends on the corresponding external data source and configured access credentials.
+Dynamic evidence depends on external API availability, access permissions, credentials, rate limits, and the source's own data coverage.
 
 ### Research Prototype
 
-The system is intended for research and evaluation rather than deployment as an autonomous operational decision-making system.
+MIL-EVID is a research prototype. It should be used for research, evidence exploration, and structured analysis, not as an autonomous decision-making system.
 
 ---
 
-# Security and Privacy Considerations
+## Security Considerations
 
-The application uses authenticated API access and user-specific analysis history.
-
-Sensitive configuration values must be stored in environment variables rather than source code.
-
-Do not commit:
-
-```text
-.env
-API credentials
-Database passwords
-Authentication secrets
-Access tokens
-Private keys
-```
-
-to the repository.
+- Keep database passwords, API keys, authentication secrets, and access tokens in environment variables or an approved secret store.
+- Never commit `.env` files, private keys, credentials, or production data.
+- Use least-privilege database credentials.
+- Validate and constrain user input at API boundaries.
+- Protect authenticated routes and review token lifecycle and refresh behavior.
+- Restrict CORS and network exposure appropriately for the deployment environment.
+- Treat externally retrieved documents and event data as untrusted input.
+- Avoid logging access tokens, secrets, or unnecessary personal data.
+- Review licensing and terms of use for each external dataset and API before redistribution or deployment.
 
 ---
 
-# Research / Development Status
+## Future Work
 
-MIL-EVID is currently an **integrated research prototype under active development**.
+Potential research extensions include:
 
-The current implementation includes:
+- Larger and more systematic retrieval benchmarks
+- Ablation studies comparing BM25, dense retrieval, RRF, and reranking
+- Evaluation of perspective coverage and analytical consistency
+- Improved claim-level evidence attribution
+- Contradiction-detection evaluation on annotated evidence pairs
+- Confidence calibration and uncertainty communication
+- Robust handling of temporal changes and conflicting reports
+- Dynamic-source freshness and failure-mode evaluation
+- Latency and memory optimization for larger corpora
+- Reproducible experiment tracking and dataset versioning
 
-- Evidence ingestion
-- Text preprocessing
-- Local chunk storage
-- BM25 retrieval
-- Dense retrieval
-- FAISS indexing
-- Hybrid retrieval
-- Reciprocal Rank Fusion
-- Cross-encoder reranking
-- Dynamic ACLED evidence retrieval
-- Perspective-aware retrieval
-- Military analysis
-- Legal analysis
-- Historical analysis
-- Claim verification
-- Contradiction detection
-- Confidence scoring
-- Citation support
-- PostgreSQL persistence
-- Authentication
-- Real-time analysis status tracking
-- React analyst dashboard
-- Analysis history
-- Evidence exploration
-
-The next stage of development focuses on systematic evaluation, benchmarking, confidence calibration, retrieval quality, and research experimentation.
+These items are research directions and should not be interpreted as completed features unless implemented and validated in the current codebase.
 
 ---
 
-# License
+## License
 
-Add the project's applicable license here.
+The applicable project license should be specified by the repository owner. Until a license is added, reuse and redistribution permissions should not be assumed.
 
 ```text
 License: To be determined
@@ -1353,8 +898,8 @@ License: To be determined
 
 ---
 
-# Disclaimer
+## Disclaimer
 
-MIL-EVID is an academic/research-oriented evidence analysis system.
+MIL-EVID is an academic and research-oriented evidence-analysis framework. It supports retrieval, organization, verification, and interpretation of publicly available or otherwise authorized evidence. It does not provide targeting recommendations, weapons guidance, tactical engagement instructions, operational military planning, or autonomous military decisions.
 
-It is designed to support research, evidence exploration, and structured analysis. It does not provide military operational advice, targeting recommendations, weapons guidance, or autonomous military decision-making.
+Generated outputs may be incomplete or inaccurate. Analysts should independently review the underlying sources, dates, context, and citations before relying on any result.
