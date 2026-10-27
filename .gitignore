@@ -24,9 +24,10 @@ venv/
 # Backend - Generated Data & Indexes
 # ==========================================
 
-backend/data/raw/*
-backend/data/processed/*
-backend/data/dynamic/*
+# backend/data/raw/*
+# backend/data/processed/*
+# backend/data/dynamic/*
+backend/data
 
 !backend/data/raw/.gitkeep
 !backend/data/processed/.gitkeep
