@@ -18,7 +18,7 @@ dnspython==2.8.0
 email-validator==2.3.0
 faiss-cpu==1.15.0
 fastapi==0.141.1
-filelock==3.32.1
+filelock==3.32.5
 flatbuffers==25.12.19
 fsspec==2026.7.0
 greenlet==3.5.5
