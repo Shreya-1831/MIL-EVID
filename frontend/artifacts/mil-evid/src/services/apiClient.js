@@ -374,4 +374,7 @@ export const apiClient = {
   async getCurrentUser() {
     return apiRequest("/api/auth/me");
   },
+  async getDashboard() {
+    return apiRequest("/api/analysis/dashboard");
+  },
 };

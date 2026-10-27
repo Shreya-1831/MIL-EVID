@@ -38,21 +38,15 @@ def list_evidence(
 
     repository = EvidenceRepository(db)
 
-    rows = repository.list_metadata()
-    print("EVIDENCE ROW COUNT:", len(rows))
+    # Count matching records without loading them all.
+    total = repository.count(source=source)
 
-    if source is not None:
-        rows = tuple(
-            row
-            for row in rows
-            if row.source == source
-        )
-
-    total = len(rows)
-
-    selected = rows[
-        offset : offset + limit
-    ]
+    # Fetch only the requested page.
+    selected = repository.list_metadata(
+        source=source,
+        limit=limit,
+        offset=offset,
+    )
 
     settings = get_settings()
 
@@ -72,7 +66,6 @@ def list_evidence(
 
     for row in selected:
         evidence_id = str(row.id)
-
         document = chunks.get(evidence_id)
 
         items.append(
@@ -114,24 +107,13 @@ def list_evidence_sources(
 
     repository = EvidenceRepository(db)
 
-    rows = repository.list_metadata()
-
-    counts: dict[str, int] = {}
-
-    for row in rows:
-        counts[row.source] = (
-            counts.get(row.source, 0) + 1
-        )
-
     return EvidenceSourcesResponse(
         items=tuple(
             EvidenceSourceResponse(
                 source=source,
                 count=count,
             )
-            for source, count in sorted(
-                counts.items()
-            )
+            for source, count in repository.count_by_source()
         )
     )
 

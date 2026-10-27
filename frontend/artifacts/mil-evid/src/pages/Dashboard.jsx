@@ -154,44 +154,24 @@ function Dashboard() {
 
       setError("");
 
-      const history = await apiClient.listAnalyses();
+      const dashboard = await apiClient.getDashboard();
 
-      const historyData = Array.isArray(history)
-        ? history
-        : [];
-
-      setAnalyses(historyData);
-
-      const completed = historyData.filter(
-        (item) =>
-          String(item?.status).toLowerCase() ===
-          "completed"
+      setAnalyses(
+        Array.isArray(dashboard?.analyses)
+          ? dashboard.analyses
+          : []
       );
 
-      const results = await Promise.allSettled(
-        completed.map((item) =>
-          apiClient.getAnalysis(item.analysis_id)
-        )
+      setDetails(
+        Array.isArray(dashboard?.details)
+          ? dashboard.details
+          : []
       );
-
-      const successfulDetails = results
-        .filter(
-          (result) =>
-            result.status === "fulfilled"
-        )
-        .map((result) => result.value)
-        .filter(Boolean);
-
-      setDetails(successfulDetails);
     } catch (err) {
-      console.error(
-        "Failed to load dashboard:",
-        err
-      );
+      console.error("Failed to load dashboard:", err);
 
       setError(
-        err?.message ||
-          "Failed to load dashboard data."
+        err?.message || "Failed to load dashboard data."
       );
     } finally {
       setLoading(false);

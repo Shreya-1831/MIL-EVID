@@ -242,6 +242,52 @@ def list_analyses(
         analyses=analyses
     )
 
+@router.get(
+    "/dashboard",
+    status_code=status.HTTP_200_OK,
+)
+def get_dashboard(
+    analysis_repository: AnalysisRepository = Depends(
+        get_analysis_repository
+    ),
+    current_user: User = Depends(get_current_user),
+):
+    """Return lightweight data needed by the Dashboard."""
+
+    rows = analysis_repository.list_analyses(
+        user_id=current_user.id
+    )
+
+    analyses = [
+        AnalysisHistoryItem(
+            analysis_id=analysis.id,
+            query_text=query.query_text,
+            status=analysis.status,
+            overall_confidence=float(
+                analysis.overall_confidence
+            ),
+            evidence_count=evidence_count,
+            started_at=analysis.started_at,
+            completed_at=analysis.completed_at,
+        )
+        for analysis, query, evidence_count in rows
+    ]
+
+    completed_ids = [
+        item.analysis_id
+        for item in analyses
+        if str(item.status).lower() == "completed"
+    ]
+
+    details = analysis_repository.get_dashboard_details(
+        completed_ids
+    )
+
+    return {
+        "analyses": analyses,
+        "details": details,
+    }
+
 
 # ============================================================
 # GET ONE ANALYSIS

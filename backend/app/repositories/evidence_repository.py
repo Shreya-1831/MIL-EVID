@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -175,16 +175,57 @@ class EvidenceRepository:
     def exists(self, evidence_id: str) -> bool:
         return self.get_metadata_by_id(evidence_id) is not None
 
-    def list_metadata(self) -> list[EvidenceMetadata]:
-        statement = select(EvidenceMetadata).order_by(
+    def list_metadata(
+        self,
+        *,
+        source: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[EvidenceMetadata]:
+        """Return evidence metadata with optional filtering and pagination."""
+
+        statement = select(EvidenceMetadata)
+
+        if source is not None:
+            statement = statement.where(
+                EvidenceMetadata.source == source
+            )
+
+        statement = statement.order_by(
             EvidenceMetadata.parent_document_id,
             EvidenceMetadata.chunk_index,
         )
+
+        if limit is not None:
+            statement = statement.limit(limit)
+
+        if offset:
+            statement = statement.offset(offset)
 
         return list(
             self._session.execute(statement)
             .scalars()
             .all()
+        )
+
+
+    def count(
+        self,
+        source: str | None = None,
+    ) -> int:
+        """Count evidence records without loading the records themselves."""
+
+        statement = select(
+            func.count()
+        ).select_from(EvidenceMetadata)
+
+        if source is not None:
+            statement = statement.where(
+                EvidenceMetadata.source == source
+            )
+
+        return int(
+            self._session.execute(statement).scalar_one()
         )
 
     def list_metadata_by_document_id(
@@ -205,19 +246,21 @@ class EvidenceRepository:
             .all()
         )
 
-    def count(
-        self,
-        source: str | None = None,
-    ) -> int:
-        statement = select(EvidenceMetadata)
+    def count_by_source(self) -> list[tuple[str, int]]:
+        """Return evidence counts grouped by source."""
 
-        if source is not None:
-            statement = statement.where(
-                EvidenceMetadata.source == source
+        statement = (
+            select(
+                EvidenceMetadata.source,
+                func.count().label("count"),
             )
-
-        return len(
-            self._session.execute(statement)
-            .scalars()
-            .all()
+            .group_by(EvidenceMetadata.source)
+            .order_by(EvidenceMetadata.source)
         )
+
+        return [
+            (source, int(count))
+            for source, count in self._session.execute(
+                statement
+            ).all()
+        ]

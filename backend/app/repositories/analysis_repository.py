@@ -883,3 +883,74 @@ class AnalysisRepository:
         return self._session.execute(
             statement
         ).scalar_one_or_none()
+
+    def get_dashboard_details(
+        self,
+        analysis_ids: list[UUID],
+    ) -> list[dict]:
+        """Fetch only the perspective and evidence metadata used by Dashboard."""
+        if not analysis_ids:
+            return []
+
+        perspective_rows = self._session.execute(
+            select(
+                AnalysisPerspective.analysis_id,
+                AnalysisPerspective.perspective,
+            )
+            .where(
+                AnalysisPerspective.analysis_id.in_(analysis_ids)
+            )
+            .order_by(
+                AnalysisPerspective.analysis_id,
+                AnalysisPerspective.perspective,
+            )
+        ).all()
+
+        evidence_rows = self._session.execute(
+            select(
+                AnalysisEvidenceRow.analysis_id,
+                AnalysisEvidenceRow.id,
+                AnalysisEvidenceRow.source_name,
+                AnalysisEvidenceRow.source_type,
+                AnalysisEvidenceRow.publication_date,
+            )
+            .where(
+                AnalysisEvidenceRow.analysis_id.in_(analysis_ids)
+            )
+            .order_by(
+                AnalysisEvidenceRow.analysis_id,
+                AnalysisEvidenceRow.id,
+            )
+        ).all()
+
+        perspectives_by_id = {}
+        evidence_by_id = {}
+
+        for row in perspective_rows:
+            perspectives_by_id.setdefault(
+                row.analysis_id, []
+            ).append({
+                "perspective": str(row.perspective),
+            })
+
+        for row in evidence_rows:
+            evidence_by_id.setdefault(
+                row.analysis_id, []
+            ).append({
+                "source_name": row.source_name,
+                "source_type": row.source_type,
+                "publication_date": row.publication_date,
+            })
+
+        return [
+            {
+                "analysis_id": str(analysis_id),
+                "perspectives": perspectives_by_id.get(
+                    analysis_id, []
+                ),
+                "evidence": evidence_by_id.get(
+                    analysis_id, []
+                ),
+            }
+            for analysis_id in analysis_ids
+        ]
