@@ -39,6 +39,7 @@ def list_evidence(
     repository = EvidenceRepository(db)
 
     rows = repository.list_metadata()
+    print("EVIDENCE ROW COUNT:", len(rows))
 
     if source is not None:
         rows = tuple(

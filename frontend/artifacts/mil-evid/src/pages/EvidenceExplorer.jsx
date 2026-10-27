@@ -93,24 +93,26 @@ export default function EvidenceExplorer() {
         setLoading(true);
         setError("");
 
-        const response =
-          await apiClient.listEvidence({
-            limit: 500,
-            offset: 0,
-          });
+        const response = await apiClient.listEvidence({
+          limit: 500,
+          offset: 0,
+        });
+
+        console.log("EVIDENCE API RESPONSE:", response);
 
         if (cancelled) return;
 
-        const records =
-          Array.isArray(response?.items)
-            ? response.items.map(
-                normalizeEvidence
-              )
+        const records = Array.isArray(response?.items)
+          ? response.items.map(normalizeEvidence)
+          : Array.isArray(response)
+            ? response.map(normalizeEvidence)
             : [];
+
+        console.log("EVIDENCE RECORDS:", records);
 
         setEvidence(records);
         setTotal(
-          Number(response?.total || records.length)
+          Number(response?.total ?? records.length)
         );
       } catch (loadError) {
         if (cancelled) return;
@@ -122,7 +124,7 @@ export default function EvidenceExplorer() {
 
         setError(
           loadError?.message ||
-            "Unable to load evidence."
+          "Unable to load evidence."
         );
       } finally {
         if (!cancelled) {
@@ -167,7 +169,7 @@ export default function EvidenceExplorer() {
         const matchesPerspective =
           perspective === "All" ||
           record.perspective ===
-            perspective;
+          perspective;
 
         const matchesType =
           type === "All" ||

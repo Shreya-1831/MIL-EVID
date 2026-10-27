@@ -249,7 +249,8 @@ class AnalysisService:
                         "perspective=%s id=%s",
                         item.source,
                         item.perspective,
-                        item.evidence_id,
+                        # item.evidence_id,
+                        item.id,
                     )
 
                 logger.info(
