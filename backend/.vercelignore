@@ -1,7 +1,20 @@
+# Python virtual environments
 .venv/
 venv/
+**/.venv/
+**/venv/
+
+# Python cache
 __pycache__/
+**/__pycache__/
+*.py[cod]
 .pytest_cache/
+**/.pytest_cache/
+
+# Tests and generated outputs
 tests/
+backend/tests/
 outputs/
-*.pyc
+
+# Git metadata
+.git/
