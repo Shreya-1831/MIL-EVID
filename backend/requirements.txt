@@ -64,7 +64,7 @@ pluggy==1.6.0
 protobuf==7.36.1
 psycopg==3.3.5
 psycopg-binary==3.3.5
-psycopg2==2.9.12
+# psycopg2==2.9.12
 pwdlib==0.3.1
 pyclipper==1.4.0
 pycparser==3.0
