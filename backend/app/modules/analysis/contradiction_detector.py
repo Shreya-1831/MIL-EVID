@@ -11,6 +11,7 @@ from app.domain.models.analysis import (
     AnalysisEvidence,
     ContradictionResult,
 )
+from app.modules.analysis.claim_verifier import get_nli_scorer
 from app.modules.analysis.llm_client import OllamaClient
 
 
@@ -20,8 +21,11 @@ logger = logging.getLogger("mil_evid")
 class ContradictionDetector:
     """Detect contradictions between the most relevant evidence items."""
 
-    # MAX_COMPARISONS = 6
     MAX_COMPARISONS = 3
+
+    # NLI thresholds (tune on your pilot queries).
+    CONTRADICTION_THRESHOLD = 0.80
+    ENTAILMENT_THRESHOLD = 0.80
 
     # UCDP Dyadic records commonly encode the dyad and annual record
     # year directly in the evidence ID, for example:
@@ -49,7 +53,7 @@ class ContradictionDetector:
         *,
         evidence: tuple[AnalysisEvidence, ...],
     ) -> tuple[ContradictionResult, ...]:
-        """Select candidate pairs and compare them in one LLM call."""
+        """Select candidate pairs and compare them (NLI, LLM fallback)."""
 
         if len(evidence) < 2:
             return ()
@@ -354,7 +358,124 @@ class ContradictionDetector:
 
         return bool(numbers_a & numbers_b)
 
+    # ------------------------------------------------------------------
+    # NLI comparison (primary path)
+    # ------------------------------------------------------------------
+
     def _batch_compare(
+        self,
+        pairs: list[tuple[AnalysisEvidence, AnalysisEvidence]],
+    ) -> tuple[ContradictionResult, ...]:
+        """Compare evidence pairs with a local NLI model (no LLM call)."""
+
+        try:
+            nli = get_nli_scorer()
+        except Exception:
+            logger.exception(
+                "NLI model unavailable; using LLM comparison."
+            )
+            return self._llm_batch_compare(pairs)
+
+        def clip(item: AnalysisEvidence) -> str:
+            return f"{item.title}. {str(item.text)[:600]}"
+
+        # Only score pairs that are not deterministically non-comparable.
+        scorable_indices = [
+            index
+            for index, (evidence_a, evidence_b) in enumerate(pairs)
+            if not self._should_skip_pair(evidence_a, evidence_b)
+        ]
+
+        forward: dict[int, dict[str, float]] = {}
+        backward: dict[int, dict[str, float]] = {}
+
+        if scorable_indices:
+            try:
+                forward_scores = nli.score(
+                    [
+                        (clip(pairs[i][0]), clip(pairs[i][1]))
+                        for i in scorable_indices
+                    ]
+                )
+                backward_scores = nli.score(
+                    [
+                        (clip(pairs[i][1]), clip(pairs[i][0]))
+                        for i in scorable_indices
+                    ]
+                )
+            except Exception:
+                logger.exception(
+                    "NLI scoring failed for contradiction pairs."
+                )
+                return self._fallback_results(pairs)
+
+            forward = dict(zip(scorable_indices, forward_scores))
+            backward = dict(zip(scorable_indices, backward_scores))
+
+        results: list[ContradictionResult] = []
+
+        for index, (evidence_a, evidence_b) in enumerate(pairs):
+            # Deterministic guards keep priority over the model.
+            if index not in forward:
+                results.append(
+                    self._non_comparable_pair_result(
+                        evidence_a,
+                        evidence_b,
+                    )
+                )
+                continue
+
+            fwd = forward[index]
+            bwd = backward[index]
+
+            contradiction = max(
+                fwd.get("contradiction", 0.0),
+                bwd.get("contradiction", 0.0),
+            )
+            entailment = max(
+                fwd.get("entailment", 0.0),
+                bwd.get("entailment", 0.0),
+            )
+
+            if contradiction >= self.CONTRADICTION_THRESHOLD:
+                status = ContradictionStatus.CONTRADICTION
+                contradiction_type = ContradictionType.FACTUAL
+                score = contradiction
+            elif entailment >= self.ENTAILMENT_THRESHOLD:
+                status = ContradictionStatus.ENTAILMENT
+                contradiction_type = ContradictionType.NONE
+                score = entailment
+            else:
+                status = ContradictionStatus.NEUTRAL
+                contradiction_type = ContradictionType.UNCERTAIN
+                score = max(contradiction, entailment)
+
+            results.append(
+                ContradictionResult(
+                    evidence_a_id=evidence_a.evidence_id,
+                    evidence_b_id=evidence_b.evidence_id,
+                    status=status,
+                    contradiction_type=contradiction_type,
+                    score=round(score, 4),
+                    explanation=(
+                        f"NLI scores: contradiction={contradiction:.2f}, "
+                        f"entailment={entailment:.2f}."
+                    ),
+                )
+            )
+
+        logger.info(
+            "Contradiction detection completed: %d result(s).",
+            len(results),
+        )
+
+        return tuple(results)
+
+    # ------------------------------------------------------------------
+    # LLM comparison (fallback if the NLI model cannot load)
+    # ------------------------------------------------------------------
+
+    def _llm_batch_compare(
         self,
         pairs: list[tuple[AnalysisEvidence, AnalysisEvidence]],
     ) -> tuple[ContradictionResult, ...]:
@@ -451,7 +572,6 @@ class ContradictionDetector:
                         f"Source: {evidence_b.source}",
                         f"Title: {evidence_b.title}",
                         f"Date: {evidence_b.date}",
-                        # f"Text: {evidence_b.text}",
                         f"Text: {evidence_b.text[:1500]}",
                     ]
                 )
@@ -541,7 +661,7 @@ class ContradictionDetector:
         response: dict,
         pairs: list[tuple[AnalysisEvidence, AnalysisEvidence]],
     ) -> tuple[ContradictionResult, ...]:
-        """Validate, correct, and convert the batch response."""
+        """Validate, correct, and convert the LLM batch response."""
 
         raw_results = response.get("results", [])
 
@@ -577,16 +697,6 @@ class ContradictionDetector:
             start=1,
         ):
             # Deterministic guard takes precedence over the LLM.
-            #
-            # This prevents an LLM classification such as:
-            #   different UCDP Dyadic annual records
-            #   -> CONTRADICTION
-            #
-            # or:
-            #   different UCDP GED/ACLED event records
-            #   -> CONTRADICTION
-            #
-            # from becoming a false contradiction.
             if self._should_skip_pair(
                 evidence_a,
                 evidence_b,
@@ -724,7 +834,7 @@ class ContradictionDetector:
         self,
         pairs: list[tuple[AnalysisEvidence, AnalysisEvidence]],
     ) -> tuple[ContradictionResult, ...]:
-        """Return safe neutral results if the LLM call fails."""
+        """Return safe neutral results if scoring fails."""
 
         return tuple(
             self._fallback_pair_result(
@@ -787,12 +897,14 @@ class ContradictionDetector:
         """Extract important military/conflict terms."""
 
         important_terms = {
-            "civilian", "civilians", "residential", "infrastructure", "attack", "attacks", 
-            "fatality", "fatalities", "killed", "injured", "government", "military", "forces", 
-            "artillery", "shelling", "airstrike", "missile", "drone", "conflict", "escalation", 
-            "damage", "destroyed", "death", "deaths","ukraine", "russia", "india", "pakistan", 
-            "israel", "palestine", "china", "united kingdom", "united states", "france", "germany", 
-            "colombia", "afghanistan"
+            "civilian", "civilians", "residential", "infrastructure",
+            "attack", "attacks", "fatality", "fatalities", "killed",
+            "injured", "government", "military", "forces", "artillery",
+            "shelling", "airstrike", "missile", "drone", "conflict",
+            "escalation", "damage", "destroyed", "death", "deaths",
+            "ukraine", "russia", "india", "pakistan", "israel",
+            "palestine", "china", "united kingdom", "united states",
+            "france", "germany", "colombia", "afghanistan",
         }
 
         return {

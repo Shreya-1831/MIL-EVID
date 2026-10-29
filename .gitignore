@@ -1,68 +1,48 @@
-# ==========================================
-# Environment
-# ==========================================
-
 .env
 .env.*
 !.env.example
-
-
-# ==========================================
-# Python / Backend
-# ==========================================
 
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
+env/
 .mypy_cache/
 .pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
 
+backend/data/raw/**
+backend/data/processed/ucdp/
+backend/data/pilot/
 
-# ==========================================
-# Backend - Generated Data & Indexes
-# ==========================================
+*.log
+backend/logs/
+backend/tmp/
+tmp/
+temp/
 
-# backend/data/raw/*
-# backend/data/processed/*
-# backend/data/dynamic/*
-backend/data/*
-
-!backend/data/raw/.gitkeep
-!backend/data/processed/.gitkeep
-!backend/data/dynamic/.gitkeep
-
-backend/indexes/faiss/*
-backend/indexes/bm25/*
-
-!backend/indexes/faiss/.gitkeep
-!backend/indexes/bm25/.gitkeep
-
-
-# ==========================================
-# Frontend - Build / Generated Files
-# ==========================================
-
+frontend/node_modules/
+frontend/artifacts/mil-evid/node_modules/
 frontend/dist/
+frontend/artifacts/mil-evid/dist/
 frontend/tmp/
 frontend/out-tsc/
 frontend/*.tsbuildinfo
 frontend/.expo/
 frontend/.expo-shared/
 
-
-# ==========================================
-# Frontend - Dependencies
-# ==========================================
-
-frontend/node_modules/
-frontend/artifacts/mil-evid/node_modules
-
-
-# ==========================================
-# IDEs / Editors
-# ==========================================
+frontend/coverage/
+frontend/.sass-cache/
+frontend/typings/
+frontend/connect.lock
+frontend/libpeerconnection.log
+frontend/npm-debug.log
+frontend/yarn-error.log
+frontend/testem.log
 
 .idea/
 .project
@@ -78,41 +58,12 @@ frontend/artifacts/mil-evid/node_modules
 !.vscode/launch.json
 !.vscode/extensions.json
 
-
-# ==========================================
-# Frontend / Framework Specific
-# ==========================================
-
-frontend/.sass-cache/
-frontend/connect.lock
-frontend/coverage/
-frontend/libpeerconnection.log
-frontend/typings/
-
-frontend/npm-debug.log
-frontend/yarn-error.log
-frontend/testem.log
-
-
-# ==========================================
-# Nx / Cursor
-# ==========================================
-
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
-
-
-# ==========================================
-# Replit
-# ==========================================
 
 .cache/
 .local/
 
-
-# ==========================================
-# System Files
-# ==========================================
-
 .DS_Store
 Thumbs.db
+desktop.ini

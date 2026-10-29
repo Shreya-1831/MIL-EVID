@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import threading
 from difflib import SequenceMatcher
+
+import torch
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from app.domain.enums import ClaimVerificationStatus
 from app.domain.models.analysis import (
@@ -18,10 +23,111 @@ from app.modules.analysis.llm_client import OllamaClient
 logger = logging.getLogger("mil_evid")
 
 
+# ---------------------------------------------------------------------------
+# NLI scorer (shared with contradiction_detector.py)
+# ---------------------------------------------------------------------------
+
+class NliScorer:
+    """Small NLI model: (premise, hypothesis) -> label probabilities."""
+
+    def __init__(
+        self,
+        model_name: str,
+        device: str,
+        max_length: int = 512,
+    ) -> None:
+        self._tok = AutoTokenizer.from_pretrained(model_name)
+        self._model = (
+            AutoModelForSequenceClassification.from_pretrained(model_name)
+            .to(device)
+            .eval()
+        )
+        self._device = device
+        self._max_length = max_length
+        # Label order differs between models, so read it from the config.
+        self._labels = {
+            int(i): str(label).lower()
+            for i, label in self._model.config.id2label.items()
+        }
+
+    @torch.inference_mode()
+    def score(
+        self,
+        pairs: list[tuple[str, str]],
+        batch_size: int = 16,
+    ) -> list[dict[str, float]]:
+        """Return [{'entailment': p, 'neutral': p, 'contradiction': p}, ...]."""
+
+        out: list[dict[str, float]] = []
+
+        for start in range(0, len(pairs), batch_size):
+            chunk = pairs[start:start + batch_size]
+
+            enc = self._tok(
+                [premise for premise, _ in chunk],
+                [hypothesis for _, hypothesis in chunk],
+                truncation="only_first",  # truncate evidence, keep the claim
+                max_length=self._max_length,
+                padding=True,
+                return_tensors="pt",
+            ).to(self._device)
+
+            probs = torch.softmax(
+                self._model(**enc).logits,
+                dim=-1,
+            ).tolist()
+
+            out.extend(
+                {self._labels[i]: p for i, p in enumerate(row)}
+                for row in probs
+            )
+
+        return out
+
+
+_NLI_LOCK = threading.Lock()
+_NLI_INSTANCE: NliScorer | None = None
+
+
+def get_nli_scorer() -> NliScorer:
+    """Lazy singleton. Runs on CPU by default to keep VRAM free for Ollama.
+
+    Environment variables:
+        MIL_EVID_NLI_MODEL   (default: MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli)
+        MIL_EVID_NLI_DEVICE  (default: cpu)
+    """
+
+    global _NLI_INSTANCE
+
+    if _NLI_INSTANCE is None:
+        with _NLI_LOCK:
+            if _NLI_INSTANCE is None:
+                _NLI_INSTANCE = NliScorer(
+                    model_name=os.getenv(
+                        "MIL_EVID_NLI_MODEL",
+                        # "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+                        "cross-encoder/nli-deberta-v3-small",
+                    ),
+                    device=os.getenv("MIL_EVID_NLI_DEVICE", "cpu"),
+                )
+                logger.info("NLI scorer loaded.")
+
+    return _NLI_INSTANCE
+
+
+# ---------------------------------------------------------------------------
+# Claim verifier
+# ---------------------------------------------------------------------------
+
 class ClaimVerifier:
     """Verify multiple generated claims against relevant evidence."""
 
     MAX_EVIDENCE_PER_CLAIM = 2
+
+    # NLI thresholds (tune on your pilot queries).
+    SUPPORTED_THRESHOLD = 0.70
+    PARTIAL_THRESHOLD = 0.35
+    SUPPORTING_ID_THRESHOLD = 0.50
 
     def __init__(self, llm_client: OllamaClient) -> None:
         self._llm_client = llm_client
@@ -32,7 +138,7 @@ class ClaimVerifier:
         claims: tuple[str, ...],
         evidence: tuple[AnalysisEvidence, ...],
     ) -> tuple[ClaimVerificationResult, ...]:
-        """Verify all claims using a single batch LLM call."""
+        """Verify all claims (deterministic UCDP rules, then NLI)."""
 
         if not claims:
             return ()
@@ -121,7 +227,7 @@ class ClaimVerifier:
             return final_results
 
         logger.info(
-            "Batch claim verification: %d claim(s) using 1 LLM call.",
+            "Batch claim verification: %d claim(s) using NLI.",
             len(valid_items),
         )
 
@@ -161,7 +267,114 @@ class ClaimVerifier:
 
         return final_results
 
+    # ------------------------------------------------------------------
+    # NLI verification (primary path)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _windows(
+        evidence_item: AnalysisEvidence,
+        size: int = 1200,
+        overlap: int = 200,
+        max_windows: int = 4,
+    ) -> list[str]:
+        """Split long evidence into overlapping windows (NLI input limit)."""
+
+        text = f"{evidence_item.title}. {evidence_item.text}".strip()
+
+        if len(text) <= size:
+            return [text]
+
+        windows: list[str] = []
+        start = 0
+
+        while start < len(text) and len(windows) < max_windows:
+            windows.append(text[start:start + size])
+            start += size - overlap
+
+        return windows
+
     def _batch_verify(
+        self,
+        items: list[
+            tuple[int, str, tuple[AnalysisEvidence, ...]]
+        ],
+    ) -> dict[int, ClaimVerificationResult]:
+        """Verify claims with a local NLI model (no LLM call)."""
+
+        try:
+            nli = get_nli_scorer()
+        except Exception:
+            logger.exception(
+                "NLI model unavailable; using LLM verification."
+            )
+            return self._llm_batch_verify(items)
+
+        result_map: dict[int, ClaimVerificationResult] = {}
+
+        for index, claim, relevant in items:
+            premises: list[str] = []
+            owners: list[str] = []
+
+            for evidence_item in relevant:
+                for window in self._windows(evidence_item):
+                    premises.append(window)
+                    owners.append(evidence_item.evidence_id)
+
+            if not premises:
+                result_map[index] = self._unsupported_result(claim)
+                continue
+
+            try:
+                scores = nli.score(
+                    [(premise, claim) for premise in premises]
+                )
+            except Exception:
+                logger.exception(
+                    "NLI scoring failed for claim %d.",
+                    index,
+                )
+                result_map[index] = self._unsupported_result(claim)
+                continue
+
+            best_per_evidence: dict[str, float] = {}
+
+            for evidence_id, probs in zip(owners, scores):
+                entailment = probs.get("entailment", 0.0)
+
+                if entailment > best_per_evidence.get(evidence_id, 0.0):
+                    best_per_evidence[evidence_id] = entailment
+
+            best = max(best_per_evidence.values(), default=0.0)
+
+            supporting_ids = tuple(
+                evidence_id
+                for evidence_id, entailment in best_per_evidence.items()
+                if entailment >= self.SUPPORTING_ID_THRESHOLD
+            )
+
+            if best >= self.SUPPORTED_THRESHOLD and supporting_ids:
+                status = ClaimVerificationStatus.SUPPORTED
+            elif best >= self.PARTIAL_THRESHOLD:
+                status = ClaimVerificationStatus.PARTIALLY_SUPPORTED
+            else:
+                status = ClaimVerificationStatus.UNSUPPORTED
+
+            result_map[index] = ClaimVerificationResult(
+                claim=claim,
+                supporting_evidence_ids=supporting_ids,
+                support_score=round(best, 4),
+                status=status,
+                verified=status == ClaimVerificationStatus.SUPPORTED,
+            )
+
+        return result_map
+
+    # ------------------------------------------------------------------
+    # LLM verification (fallback if the NLI model cannot load)
+    # ------------------------------------------------------------------
+
+    def _llm_batch_verify(
         self,
         items: list[
             tuple[int, str, tuple[AnalysisEvidence, ...]]
@@ -413,7 +626,10 @@ class ClaimVerifier:
 
         return result_map
 
-    
+    # ------------------------------------------------------------------
+    # Deterministic UCDP verification (runs before NLI)
+    # ------------------------------------------------------------------
+
     @classmethod
     def _verify_structured_ucdp_claim(
         cls,
@@ -650,7 +866,7 @@ class ClaimVerifier:
             part in evidence_text
             for part in parts
         )
-    
+
     @staticmethod
     def _unsupported_result(
         claim: str,

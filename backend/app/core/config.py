@@ -81,7 +81,8 @@ class Settings(BaseSettings):
     primary_countries_raw: str = Field(default="", alias="PRIMARY_COUNTRIES")
 
     ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
-    ollama_model: str = Field(default="llama3.2:3b", alias="OLLAMA_MODEL")
+    # ollama_model: str = Field(default="llama3.2:3b", alias="OLLAMA_MODEL")
+    ollama_model: str = Field(default="qwen2.5:1.5b", alias="OLLAMA_MODEL")
     ollama_timeout_seconds: float = Field(default=120.0, gt=0, alias="OLLAMA_TIMEOUT_SECONDS")
     ollama_num_predict: int = Field(default=220, gt=32, alias="OLLAMA_NUM_PREDICT")
     ollama_keep_alive: str = Field(default="24h", alias="OLLAMA_KEEP_ALIVE")
